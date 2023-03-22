@@ -13,8 +13,6 @@ import (
 
 const visualPort = 8888
 
-//var balls = []pointType{{x: 2, y: 3}, {x: 4, y: 2}, {x: 7, y: 3}, {x: 5, y: 4}, {x: 3, y: 6}, {x: 8, y: 6}, {x: 5, y: 8}, {x: 7, y: 8}, {x: 2, y: 9}, {x: 10, y: 10}}
-
 func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 	log.Info("Visual server started")
 	//go imageReciever()

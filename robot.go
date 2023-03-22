@@ -238,16 +238,6 @@ func keyIntepreter(key string) []byte {
 	return []byte(keyTranslator[key])
 }
 
-/*
-up - send up
-left - send left
-\left - send up
-\up - send stop
-
-
-
-*/
-
 func calcRotation(angle int) []byte {
 	if angle > 0 {
 		return []byte{[]byte("L")[0], byte(angle)}
