@@ -11,7 +11,7 @@ import (
 func keyGet(keyChan chan<- string) {
 	reconnTimer := &backoff.Backoff{
 		Min:    500 * time.Millisecond,
-		Max:    3 * time.Second,
+		Max:    5 * time.Second,
 		Factor: 2,
 		Jitter: false,
 	}
