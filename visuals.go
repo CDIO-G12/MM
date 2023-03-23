@@ -13,6 +13,7 @@ import (
 
 const visualPort = 8888
 
+// initVisualServer hold the visual server and handles stuff
 func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 	log.Info("Visual server started")
 	//go imageReciever()
@@ -22,25 +23,32 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 	goalPos := pointType{x: 200, y: 400}
 	active := false
 
+	// this routine handles commands comming from the robot
 	go func() {
 		for {
+			// if it is not active, it will ignore commands from the robot
 			if !active {
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
 
+			// recieve command from robot, and handle
 			cmd := <-commandChan
 			switch cmd {
 			case "first": // Send first ball
 				log.Infoln("First ball send")
 				if len(sortedBalls) > 0 {
 					poiChan <- poiType{point: sortedBalls[0], category: ball}
+				} else {
+					// do something if it has not found balls yet
 				}
+
 			case "next": // Send next ball
 				if len(sortedBalls) == 0 {
 					poiChan <- poiType{point: goalPos, category: goal}
 					log.Infoln("Goal send")
 				} else {
+					// channel sends blocks, so we open a new routine to not stop the current
 					go func() {
 						commandChan <- "compute"
 					}()
@@ -66,8 +74,7 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 		}
 	}()
 
-	//commandChan <- "compute"
-
+	// create server
 	addr := fmt.Sprintf("%s:%d", ip, visualPort)
 	server, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -76,8 +83,8 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 	defer server.Close()
 
 	log.Println("Visuals server is running on:", addr)
-
 	for {
+		// Accept incoming server request
 		conn, err := server.Accept()
 		if err != nil {
 			log.Println("Failed to accept conn.", err)
@@ -89,27 +96,37 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 		active = true
 
 		for {
+			// Read blocks, so we wait for incoming command
 			rLen, err := conn.Read(buffer)
+			// if it fails, we break the loop
 			if log.Should(err) {
+				// Send an emergency in a new routine so it wont block
 				go func() {
 					poiChan <- poiType{category: emergency} // Stop the bot if connection is lost
 				}()
 				conn.Close()
 				break
 			}
+
+			// Convert the recieved to string
 			recString := string(buffer[0:rLen])
 			//log.Info("Visuals received: ", recString)
+
+			// Quickly check if it is an emergency
 			if strings.Contains(recString, "!") {
 				poiChan <- poiType{category: emergency}
 				continue
 			}
 
+			// Otherwise we split it to seperate commands
 			split := strings.Split(recString, "/")
+			// That should be at least 3 long
 			if len(split) < 3 {
 				continue
 			}
+			// The first part of the command, is the type
 			switch split[0] {
-			case "r": //robot - recieve current position as 'r/x/y/z' - z is angle
+			case "r": //robot - recieve current position as 'r/x/y/r' - r is angle
 				if tempX, err := strconv.Atoi(split[1]); err == nil {
 					if tempY, err := strconv.Atoi(split[2]); err == nil {
 						if tempR, err := strconv.Atoi(split[3]); err == nil {
@@ -145,9 +162,9 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 						ballBuffer = append(ballBuffer, ball)
 					}
 				}
-			case "p": //pixel distance
+			case "p": // pixel distance
 				log.Info("PixelDist: ", split)
-			case "g":
+			case "g": // goal
 				if tempX, err := strconv.Atoi(split[1]); err == nil {
 					if tempY, err := strconv.Atoi(split[2]); err == nil {
 						goalPos.x = tempX
@@ -160,6 +177,7 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 	}
 }
 
+// checkForNewBalls will compare two slices and see if there are new elements
 func checkForNewBalls(old, recevied []pointType) bool {
 	for _, n := range recevied {
 		found := false
@@ -177,6 +195,7 @@ func checkForNewBalls(old, recevied []pointType) bool {
 	return false
 }
 
+// compares 2 points to see if they are close to each other
 func isClose(old, new pointType) bool {
 	_, len := old.dist(new)
 	return len < 5
@@ -209,11 +228,12 @@ func (currentPos pointType) sortBalls(balls []pointType) (sortedBalls []pointTyp
 	return
 }
 
+// remove an element from a slice
 func remove(slice []pointType, s int) []pointType {
 	return append(slice[:s], slice[s+1:]...)
 }
 
-// for getting and saving images
+// for getting and saving images - is not in use
 func imageReciever() {
 	udpServer, err := net.ListenPacket("udp", fmt.Sprintf(":%d", visualPort-1))
 	if err != nil {
