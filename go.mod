@@ -1,4 +1,4 @@
-module Tester
+module MM
 
 go 1.19
 

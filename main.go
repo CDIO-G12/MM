@@ -6,7 +6,7 @@ import (
 	log "github.com/s00500/env_logger"
 )
 
-const localhost = true
+const localhost = false
 const wifi = false
 
 func main() {

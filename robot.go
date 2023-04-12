@@ -133,6 +133,7 @@ func initRobotServer(keyChan <-chan string, poiChan <-chan poiType, commandChan 
 			}
 			// if the loop is breaked, we cancel to stop the other routines
 			cancel()
+			state = "exit"
 		}()
 
 		// This handles the state machine for the robot

@@ -20,6 +20,7 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 	balls := []pointType{}
 	sortedBalls := []pointType{}
 	currentPos := pointType{x: 200, y: 200, angle: 180}
+	orangeBall := pointType{x: 0, y: 0}
 	goalPos := pointType{x: 200, y: 400}
 	active := false
 
@@ -37,6 +38,11 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 			switch cmd {
 			case "first": // Send first ball
 				log.Infoln("First ball send")
+
+				if orangeBall.x != 0 {
+					poiChan <- poiType{point: orangeBall, category: ball}
+					continue
+				}
 				if len(sortedBalls) > 0 {
 					poiChan <- poiType{point: sortedBalls[0], category: ball}
 				} else {
@@ -44,6 +50,10 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 				}
 
 			case "next": // Send next ball
+				if orangeBall.x != 0 {
+					poiChan <- poiType{point: orangeBall, category: ball}
+					continue
+				}
 				if len(sortedBalls) == 0 {
 					poiChan <- poiType{point: goalPos, category: goal}
 					log.Infoln("Goal send")
@@ -126,6 +136,13 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 			}
 			// The first part of the command, is the type
 			switch split[0] {
+			case "o": //orange ball - recieve position as 'o/x/y'
+				if tempX, err := strconv.Atoi(split[1]); err == nil {
+					if tempY, err := strconv.Atoi(split[2]); err == nil {
+						orangeBall.x = tempX
+						orangeBall.y = tempY
+					}
+				}
 			case "r": //robot - recieve current position as 'r/x/y/r' - r is angle
 				if tempX, err := strconv.Atoi(split[1]); err == nil {
 					if tempY, err := strconv.Atoi(split[2]); err == nil {
