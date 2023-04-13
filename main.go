@@ -6,9 +6,6 @@ import (
 	log "github.com/s00500/env_logger"
 )
 
-const localhost = false
-const wifi = false
-
 func main() {
 	// enable line numbers in log
 	log.EnableLineNumbers()

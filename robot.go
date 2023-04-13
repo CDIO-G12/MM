@@ -11,8 +11,6 @@ import (
 	log "github.com/s00500/env_logger"
 )
 
-const robotPort = 9999
-
 // initRobotServer is the main function for the robot server. In here are multiple goroutines and a statemachine to handle robot control.
 func initRobotServer(keyChan <-chan string, poiChan <-chan poiType, commandChan chan<- string) {
 	addr := fmt.Sprintf("%s:%d", ip, robotPort)
@@ -115,7 +113,7 @@ func initRobotServer(keyChan <-chan string, poiChan <-chan poiType, commandChan 
 					// Count the ball, and keep track of how many balls are stored at the moment
 					ballCounter++
 					// If the storage is full, we move to goal, otherwise we ask for the next ball
-					if ballCounter >= 3 {
+					if ballCounter >= ballCounterMax {
 						ballCounter = 0
 						commandChan <- "goal"
 					} else {

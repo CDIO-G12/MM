@@ -11,8 +11,6 @@ import (
 	log "github.com/s00500/env_logger"
 )
 
-const visualPort = 8888
-
 // initVisualServer hold the visual server and handles stuff
 func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 	log.Info("Visual server started")
