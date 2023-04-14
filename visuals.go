@@ -132,6 +132,7 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 			if len(split) < 3 {
 				continue
 			}
+
 			// The first part of the command, is the type
 			switch split[0] {
 			case "o": //orange ball - recieve position as 'o/x/y'
@@ -141,6 +142,7 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 						orangeBall.y = tempY
 					}
 				}
+
 			case "r": //robot - recieve current position as 'r/x/y/r' - r is angle
 				if tempX, err := strconv.Atoi(split[1]); err == nil {
 					if tempY, err := strconv.Atoi(split[2]); err == nil {
@@ -156,6 +158,7 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 						}
 					}
 				}
+
 			case "b": //ball - recieve current position as 'b/x/y'
 				if split[1] == "r" { // reset
 					ballBuffer = []pointType{}
@@ -177,8 +180,32 @@ func initVisualServer(poiChan chan<- poiType, commandChan chan string) {
 						ballBuffer = append(ballBuffer, ball)
 					}
 				}
+
+			case "c": // corner
+				if tempI, err := strconv.Atoi(split[1]); err == nil {
+					if tempX, err := strconv.Atoi(split[2]); err == nil {
+						if tempY, err := strconv.Atoi(split[3]); err == nil {
+							poiChan <- poiType{category: corner, point: pointType{x: tempX, y: tempY, angle: tempI}}
+						}
+					}
+				}
+
+			case "m": // middle x
+				if tempI, err := strconv.Atoi(split[1]); err == nil {
+					if tempX, err := strconv.Atoi(split[2]); err == nil {
+						if tempY, err := strconv.Atoi(split[3]); err == nil {
+							poiChan <- poiType{category: middleXcorner, point: pointType{x: tempX, y: tempY, angle: tempI}}
+						}
+					}
+				}
+
 			case "p": // pixel distance
 				log.Info("PixelDist: ", split)
+				if s, err := strconv.ParseFloat(split[2], 32); err == nil {
+					pixelDistMU.Lock()
+					pixelDist = s
+					pixelDistMU.Unlock()
+				}
 			case "g": // goal
 				if tempX, err := strconv.Atoi(split[1]); err == nil {
 					if tempY, err := strconv.Atoi(split[2]); err == nil {

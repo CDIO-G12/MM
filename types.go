@@ -10,6 +10,8 @@ const (
 	robot
 	emergency
 	goal
+	corner
+	middleXcorner
 )
 
 type pointType struct {

@@ -1,10 +1,14 @@
 package main
 
 import (
+	"sync"
 	"time"
 
 	log "github.com/s00500/env_logger"
 )
+
+var pixelDistMU = sync.RWMutex{}
+var pixelDist = 10.0
 
 func main() {
 	// enable line numbers in log
@@ -20,8 +24,9 @@ func main() {
 	// channels between visuals and robot server
 	commandChan := make(chan string)
 	poiChan := make(chan poiType)
+	frame := newFrame(poiChan)
 	go initVisualServer(poiChan, commandChan)
-	go initRobotServer(keyChan, poiChan, commandChan)
+	go initRobotServer(frame, keyChan, poiChan, commandChan)
 
 	// loop main, can enable prints of routines to watch out for too many go routines
 	for {

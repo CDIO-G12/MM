@@ -12,7 +12,7 @@ import (
 )
 
 // initRobotServer is the main function for the robot server. In here are multiple goroutines and a statemachine to handle robot control.
-func initRobotServer(keyChan <-chan string, poiChan <-chan poiType, commandChan chan<- string) {
+func initRobotServer(frame *frameType, keyChan <-chan string, poiChan <-chan poiType, commandChan chan<- string) {
 	addr := fmt.Sprintf("%s:%d", ip, robotPort)
 	server, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -154,7 +154,7 @@ func initRobotServer(keyChan <-chan string, poiChan <-chan poiType, commandChan 
 				time.Sleep(100 * time.Millisecond)
 
 			case "nextMove": // nextMove calculated the next move and sends it to the robot
-				angle, dist := currentPos.dist(nextPos.point)
+				angle, dist := frame.nextMove(currentPos, nextPos.point)
 				log.Infof("Dist %d, angle %d, next %+v, current %+v", dist, angle, nextPos.point, currentPos)
 				// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
 				if (angle < currentPos.angle-5 || angle > currentPos.angle+5) || ((angle < currentPos.angle-15 || angle > currentPos.angle+15) && dist > 100) {
