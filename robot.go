@@ -1,6 +1,8 @@
 package main
 
 import (
+	f "MM/frame"
+	u "MM/utils"
 	"context"
 	"fmt"
 	"net"
@@ -12,8 +14,8 @@ import (
 )
 
 // initRobotServer is the main function for the robot server. In here are multiple goroutines and a statemachine to handle robot control.
-func initRobotServer(frame *frameType, keyChan <-chan string, poiChan <-chan poiType, commandChan chan<- string) {
-	addr := fmt.Sprintf("%s:%d", ip, robotPort)
+func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u.PoiType, commandChan chan<- string, pixelDist *u.PixelDistType) {
+	addr := fmt.Sprintf("%s:%d", u.IP, u.RobotPort)
 	server, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalln(err)
@@ -32,8 +34,8 @@ func initRobotServer(frame *frameType, keyChan <-chan string, poiChan <-chan poi
 		}
 		log.Infoln("Connected to robot at:", conn.RemoteAddr().String())
 
-		currentPos := pointType{}
-		nextPos := poiType{}
+		currentPos := u.PointType{}
+		nextPos := u.PoiType{}
 		ballCounter := 0
 
 		//This helps for ending routines
@@ -58,12 +60,12 @@ func initRobotServer(frame *frameType, keyChan <-chan string, poiChan <-chan poi
 					}
 
 				case poi := <-poiChan: // Incomming point of interest
-					switch poi.category { // Sorted by category
-					case robot:
-						currentPos = poi.point
+					switch poi.Category { // Sorted by category
+					case u.Robot:
+						currentPos = poi.Point
 						//log.Infoln("Updated current position: ", currentPos)
 
-					case emergency: // If emergency, we stop the robot
+					case u.Emergency: // If emergency, we stop the robot
 						_, err = conn.Write([]byte("!"))
 						if err != nil {
 							log.Println("Lost connection")
@@ -113,7 +115,7 @@ func initRobotServer(frame *frameType, keyChan <-chan string, poiChan <-chan poi
 					// Count the ball, and keep track of how many balls are stored at the moment
 					ballCounter++
 					// If the storage is full, we move to goal, otherwise we ask for the next ball
-					if ballCounter >= ballCounterMax {
+					if ballCounter >= u.BallCounterMax {
 						ballCounter = 0
 						commandChan <- "goal"
 					} else {
@@ -154,11 +156,11 @@ func initRobotServer(frame *frameType, keyChan <-chan string, poiChan <-chan poi
 				time.Sleep(100 * time.Millisecond)
 
 			case "nextMove": // nextMove calculated the next move and sends it to the robot
-				angle, dist := frame.nextMove(currentPos, nextPos.point)
-				log.Infof("Dist %d, angle %d, next %+v, current %+v", dist, angle, nextPos.point, currentPos)
+				angle, dist := frame.NextMove(currentPos, nextPos.Point)
+				log.Infof("Dist %d, angle %d, next %+v, current %+v", dist, angle, nextPos.Point, currentPos)
 				// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
-				if (angle < currentPos.angle-5 || angle > currentPos.angle+5) || ((angle < currentPos.angle-15 || angle > currentPos.angle+15) && dist > 100) {
-					success := sendToBot(conn, calcRotation((currentPos.angle - angle)))
+				if (angle < currentPos.Angle-5 || angle > currentPos.Angle+5) || ((angle < currentPos.Angle-15 || angle > currentPos.Angle+15) && dist > 100) {
+					success := sendToBot(conn, calcRotation((currentPos.Angle - angle)))
 					if !success {
 						break loop
 					}

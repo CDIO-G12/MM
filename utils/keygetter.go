@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"net"
@@ -8,7 +8,7 @@ import (
 	log "github.com/s00500/env_logger"
 )
 
-func keyGet(keyChan chan<- string) {
+func KeyGet(keyChan chan<- string) {
 	reconnTimer := &backoff.Backoff{
 		Min:    500 * time.Millisecond,
 		Max:    5 * time.Second,

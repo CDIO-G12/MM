@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"net"
@@ -6,9 +6,9 @@ import (
 	log "github.com/s00500/env_logger"
 )
 
-var ip = "localhost"
+var IP = "localhost"
 
-func getIp() {
+func GetIp() {
 	if localhost {
 		return
 	}
@@ -28,7 +28,7 @@ func getIp() {
 	var ipT net.IP
 	for _, v := range addrs {
 		if ipT = v.(*net.IPNet).IP.To4(); ipT != nil {
-			ip = ipT.String()
+			IP = ipT.String()
 			break
 		}
 	}
