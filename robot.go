@@ -138,6 +138,8 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 
 		// This handles the state machine for the robot
 		localState := ""
+		positions := []u.PointType{}
+		nextGoto := u.PointType{}
 	loop:
 		for {
 			// critical read
@@ -155,9 +157,35 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 			case "moving": // Moving waits for a 'fm' command
 				time.Sleep(100 * time.Millisecond)
 
+			case "nextPosQueue": // Create new array of moves
+				positions = frame.CreateMoves(currentPos, nextPos.Point)
+				stateMU.Lock()
+				state = "nextPos"
+				stateMU.Unlock()
+
+			case "nextPos":
+				if len(positions) == 0 {
+					if _, temp := currentPos.Dist(nextPos.Point); temp < 5 {
+						switch nextPos.Category {
+						case u.Goal:
+							//Dump
+						case u.Ball:
+							//PickupBall
+						}
+						log.Info("Should do something here!! ", nextPos, currentPos)
+						continue
+					}
+
+					stateMU.Lock()
+					state = "nextPosQueue"
+					stateMU.Unlock()
+					continue
+				}
+				nextGoto = u.Pop(&positions)
+
 			case "nextMove": // nextMove calculated the next move and sends it to the robot
-				angle, dist := frame.NextMove(currentPos, nextPos.Point)
-				log.Infof("Dist %d, angle %d, next %+v, current %+v", dist, angle, nextPos.Point, currentPos)
+				angle, dist := currentPos.Dist(nextGoto)
+				log.Infof("Dist: %d, angle: %d, next: %+v, current: %+v", dist, angle, nextGoto, currentPos)
 				// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
 				if (angle < currentPos.Angle-5 || angle > currentPos.Angle+5) || ((angle < currentPos.Angle-15 || angle > currentPos.Angle+15) && dist > 100) {
 					success := sendToBot(conn, calcRotation((currentPos.Angle - angle)))
@@ -176,14 +204,21 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					if !success {
 						break loop
 					}
-					// if we are very close to the robot we do something at some point
+					// if we are very close to the wanted position we do something at some point
 				} else {
-					//TODO: do something here!
+					stateMU.Lock()
+					state = "nextPos"
+					stateMU.Unlock()
+					continue
 				}
 				// set the new state to moving
 				stateMU.Lock()
 				state = "moving"
 				stateMU.Unlock()
+
+			case "emergency":
+				log.Println("Emergency!")
+				time.Sleep(500 * time.Millisecond)
 			}
 		}
 	}

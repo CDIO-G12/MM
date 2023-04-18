@@ -34,3 +34,14 @@ func GetIp() {
 	}
 
 }
+
+func Abs(i int) int {
+	if i < 0 {
+		return -i
+	}
+	return i
+}
+
+func Avg(i1, i2 int) int {
+	return (i1 + i2) / 2
+}

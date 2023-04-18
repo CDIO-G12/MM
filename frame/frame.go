@@ -2,9 +2,14 @@ package frame
 
 import (
 	u "MM/utils"
+	"fmt"
+	"image"
+	"image/color"
+	"image/png"
+	"log"
+	"os"
 	"sync"
-
-	log "github.com/s00500/env_logger"
+	"time"
 )
 
 type FrameType struct {
@@ -44,7 +49,7 @@ func NewFrame(poiChan <-chan u.PoiType, pixelDist *u.PixelDistType) *FrameType {
 			default:
 				continue
 			}
-			log.Infoln("Updated frame, ", poi)
+			//log.Infoln("Updated frame, ", poi)
 		}
 	}()
 
@@ -76,9 +81,121 @@ func (f *FrameType) updateGuideCorners(cornerNr int) {
 	}
 }
 
-func (f *FrameType) NextMove(currentPos u.PointType, nextPos u.PointType) (angle int, dist int) {
+func (f *FrameType) findClosestGuidePosition(position u.PointType) u.PointType {
+	f.MU.Lock()
+	defer f.MU.Unlock()
+	up := u.Avg(f.guideCorners[0].Y, f.guideCorners[1].Y)
+	left := u.Avg(f.guideCorners[0].X, f.guideCorners[3].X)
+	down := u.Avg(f.guideCorners[2].Y, f.guideCorners[3].Y)
+	right := u.Avg(f.guideCorners[1].X, f.guideCorners[2].X)
 
-	angle, dist = currentPos.Dist(nextPos)
+	bordersDist := []int{u.Abs(position.Y - up), u.Abs(position.X - left), u.Abs(position.Y - down), u.Abs(position.X - right)}
+	//borders := []int{up, left, down, right}
+	min := 99999
+	minI := 5
+	for i, border := range bordersDist {
+		if border < min {
+			min = border
+			minI = i
+		}
+	}
+
+	pos := u.PointType{}
+	switch minI {
+	case 0: //up
+		pos = u.PointType{X: position.X, Y: up}
+	case 1: //left
+		pos = u.PointType{Y: position.Y, X: left}
+	case 2: //down
+		pos = u.PointType{X: position.X, Y: down}
+	case 3: //right
+		pos = u.PointType{Y: position.Y, X: right}
+	}
+
+	if pos.X < left {
+		pos.X = left
+	} else if pos.X > right {
+		pos.X = right
+	}
+
+	fmt.Println(pos.Y, up, down)
+	if pos.Y < up {
+		pos.Y = up
+	} else if pos.Y > down {
+		pos.Y = down
+	}
+
+	return pos
+}
+
+func (f *FrameType) CreateMoves(currentPos u.PointType, nextPos u.PointType) (directions []u.PointType) {
+	first := f.findClosestGuidePosition(currentPos)
+	last := f.findClosestGuidePosition(nextPos)
+	directions = append(directions, first)
+
+	/*TODO: Make middle positions
+
+	Check if middle x is in the way, and add more points
+	*/
+
+	directions = append(directions, last)
 
 	return
+}
+
+func ManualTest() {
+	poiChan := make(chan u.PoiType)
+	frame := NewFrame(poiChan, &u.PixelDistType{Definition: 0.10})
+	poiChan <- u.PoiType{Point: u.PointType{X: 50, Y: 50, Angle: 0}, Category: u.Corner}
+	poiChan <- u.PoiType{Point: u.PointType{X: 250, Y: 50, Angle: 1}, Category: u.Corner}
+	poiChan <- u.PoiType{Point: u.PointType{X: 250, Y: 150, Angle: 2}, Category: u.Corner}
+	poiChan <- u.PoiType{Point: u.PointType{X: 50, Y: 150, Angle: 3}, Category: u.Corner}
+
+	time.Sleep(time.Millisecond)
+
+	currentPos := u.PointType{X: 110, Y: 70}
+	nextPos := u.PointType{X: 220, Y: 110}
+	moves := []u.PointType{currentPos}
+	moves = append(moves, frame.CreateMoves(currentPos, nextPos)...)
+	moves = append(moves, nextPos)
+
+	fmt.Println(moves)
+	frame.createTestImg(moves, "t1")
+}
+
+func (f *FrameType) createTestImg(points []u.PointType, name string) {
+	width := 300
+	height := 200
+
+	upLeft := image.Point{0, 0}
+	lowRight := image.Point{width, height}
+
+	colors := []color.RGBA{{255, 0, 0, 0xff}, {0, 255, 0, 0xff}, {0, 0, 255, 0xff}, {255, 0, 255, 0xff}, {100, 200, 200, 0xff}, {100, 200, 200, 0xff}}
+	img := image.NewRGBA(image.Rectangle{upLeft, lowRight})
+
+	for i := f.guideCorners[0].X; i < f.guideCorners[1].X; i++ {
+		img.Set(i, f.guideCorners[0].Y, color.RGBA{200, 200, 200, 0x7F})
+		img.Set(i, f.guideCorners[2].Y, color.RGBA{200, 200, 200, 0x7F})
+	}
+
+	for i := f.guideCorners[0].Y; i < f.guideCorners[3].Y; i++ {
+		img.Set(f.guideCorners[0].X, i, color.RGBA{200, 200, 200, 0x7F})
+		img.Set(f.guideCorners[1].X, i, color.RGBA{200, 200, 200, 0x7F})
+	}
+
+	for i, p := range points {
+		fmt.Println(p)
+		img.Set(p.X, p.Y, colors[i])
+	}
+
+	// Encode as PNG.
+	file, err := os.Create(fmt.Sprint(name, ".png"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = png.Encode(file, img)
+	if err != nil {
+		log.Fatal(err)
+	}
+	file.Close()
 }

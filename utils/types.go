@@ -84,3 +84,10 @@ func (currentPos PointType) SortBalls(balls []PointType) (sortedBalls []PointTyp
 func remove(slice []PointType, s int) []PointType {
 	return append(slice[:s], slice[s+1:]...)
 }
+
+func Pop(slice *[]PointType) PointType {
+	f := len(*slice)
+	rv := (*slice)[f-1]
+	*slice = (*slice)[:f-1]
+	return rv
+}

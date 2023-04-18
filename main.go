@@ -15,6 +15,10 @@ func main() {
 	u.GetIp()
 	log.Info("Got IP: ", u.IP)
 
+	/*f.ManualTest()
+	return
+	*/
+
 	// this creates a channel and a routine for the key getter. Not used at the moment
 	keyChan := make(chan string)
 	go u.KeyGet(keyChan)
