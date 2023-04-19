@@ -6,10 +6,11 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"log"
 	"os"
 	"sync"
 	"time"
+
+	log "github.com/s00500/env_logger"
 )
 
 type FrameType struct {
@@ -22,7 +23,8 @@ type FrameType struct {
 }
 
 func NewFrame(poiChan <-chan u.PoiType) *FrameType {
-	frame := FrameType{}
+	frame := FrameType{Corners: [4]u.PointType{{X: 25, Y: 25}}}
+	log.Infoln("Frame created")
 
 	go func() {
 		for poi := range poiChan {
@@ -118,7 +120,7 @@ func (f *FrameType) findClosestGuidePosition(position u.PointType) u.PointType {
 		pos.X = right
 	}
 
-	fmt.Println(pos.Y, up, down)
+	//fmt.Println(pos.Y, up, down)
 	if pos.Y < up {
 		pos.Y = up
 	} else if pos.Y > down {
@@ -139,6 +141,8 @@ func (f *FrameType) CreateMoves(currentPos u.PointType, nextPos u.PointType) (di
 	*/
 
 	directions = append(directions, last)
+
+	f.createTestImg([]u.PointType{currentPos, first, last, nextPos}, "Directions")
 
 	return
 }
@@ -164,8 +168,8 @@ func ManualTest() {
 }
 
 func (f *FrameType) createTestImg(points []u.PointType, name string) {
-	width := 300
-	height := 200
+	width := 700
+	height := 400
 
 	upLeft := image.Point{0, 0}
 	lowRight := image.Point{width, height}
@@ -173,18 +177,17 @@ func (f *FrameType) createTestImg(points []u.PointType, name string) {
 	colors := []color.RGBA{{255, 0, 0, 0xff}, {0, 255, 0, 0xff}, {0, 0, 255, 0xff}, {255, 0, 255, 0xff}, {100, 200, 200, 0xff}, {100, 200, 200, 0xff}}
 	img := image.NewRGBA(image.Rectangle{upLeft, lowRight})
 
-	for i := f.guideCorners[0].X; i < f.guideCorners[1].X; i++ {
+	for i := f.guideCorners[0].X; i <= f.guideCorners[1].X; i++ {
 		img.Set(i, f.guideCorners[0].Y, color.RGBA{200, 200, 200, 0x7F})
 		img.Set(i, f.guideCorners[2].Y, color.RGBA{200, 200, 200, 0x7F})
 	}
 
-	for i := f.guideCorners[0].Y; i < f.guideCorners[3].Y; i++ {
+	for i := f.guideCorners[0].Y; i <= f.guideCorners[3].Y; i++ {
 		img.Set(f.guideCorners[0].X, i, color.RGBA{200, 200, 200, 0x7F})
 		img.Set(f.guideCorners[1].X, i, color.RGBA{200, 200, 200, 0x7F})
 	}
 
 	for i, p := range points {
-		fmt.Println(p)
 		img.Set(p.X, p.Y, colors[i])
 	}
 

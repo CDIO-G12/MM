@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -52,8 +53,8 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					break loop
 
 				case key := <-keyChan: // Only used for manual control
-					log.Infoln(key)
-					_, err = conn.Write([]byte(key))
+					log.Infoln(manControlInt(key))
+					_, err = conn.Write(manControlInt(key))
 					if err != nil {
 						log.Println("Lost connection")
 						break loop
@@ -77,7 +78,9 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						nextPos = poi
 						log.Infoln("Got next pos: ", poi)
 						stateMU.Lock()
-						state = "nextMove"
+						if state == "waiting" {
+							state = "nextPosQueue"
+						}
 						stateMU.Unlock()
 					}
 				}
@@ -92,7 +95,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				// Read blocks until an incomming message comes, or the connection dies.
 				len, err := conn.Read(buffer)
 				if err != nil {
-					log.Println("Lost connection")
+					log.Println("Lost connection to robot")
 					break
 				}
 				// We convert from []byte to string
@@ -104,6 +107,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				case strings.Contains(recieved, "rd"): // ready - the initial command send, when the robot is ready to move
 					commandChan <- "pos"   // Ask for current position
 					commandChan <- "first" // Send the first ball
+					log.Infoln("Robot ready!")
 
 				case strings.Contains(recieved, "gb"): // got ball - is send when the robot got a ball
 					// This might be send multiple types at once, so this will 'debounce' it
@@ -158,12 +162,15 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				time.Sleep(100 * time.Millisecond)
 
 			case "nextPosQueue": // Create new array of moves
+				commandChan <- "pos"
 				positions = frame.CreateMoves(currentPos, nextPos.Point)
+				log.Infoln("Got position queue", positions)
 				stateMU.Lock()
 				state = "nextPos"
 				stateMU.Unlock()
 
 			case "nextPos":
+				commandChan <- "pos"
 				if len(positions) == 0 {
 					if _, temp := currentPos.Dist(nextPos.Point); temp < 5 {
 						switch nextPos.Category {
@@ -182,13 +189,27 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					continue
 				}
 				nextGoto = u.Pop(&positions)
+				if nextGoto.X == 0 {
+					log.Error("Error! Could not get next goto")
+					continue
+				}
+				stateMU.Lock()
+				state = "nextMove"
+				stateMU.Unlock()
 
 			case "nextMove": // nextMove calculated the next move and sends it to the robot
+				commandChan <- "pos"
+				if nextGoto.X == 0 && nextGoto.Y == 0 {
+					stateMU.Lock()
+					state = "nextPos"
+					stateMU.Unlock()
+					continue
+				}
 				angle, dist := currentPos.Dist(nextGoto)
-				log.Infof("Dist: %d, angle: %d, next: %+v, current: %+v", dist, angle, nextGoto, currentPos)
+				log.Infof("Dist: %d, angle: %d, send angle: %d, next: %+v, current: %+v", dist, angle, angle-currentPos.Angle, nextGoto, currentPos)
 				// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
-				if (angle < currentPos.Angle-5 || angle > currentPos.Angle+5) || ((angle < currentPos.Angle-15 || angle > currentPos.Angle+15) && dist > 100) {
-					success := sendToBot(conn, calcRotation((currentPos.Angle - angle)))
+				if ((angle < currentPos.Angle-5 || angle > currentPos.Angle+5) && dist > 5) || ((angle < currentPos.Angle-15 || angle > currentPos.Angle+15) && dist > 100) {
+					success := sendToBot(conn, calcRotation(angle-currentPos.Angle))
 					if !success {
 						break loop
 					}
@@ -206,12 +227,14 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					}
 					// if we are very close to the wanted position we do something at some point
 				} else {
+					log.Infoln("Closing in!")
 					stateMU.Lock()
 					state = "nextPos"
 					stateMU.Unlock()
 					continue
 				}
 				// set the new state to moving
+				log.Infoln("Moving!")
 				stateMU.Lock()
 				state = "moving"
 				stateMU.Unlock()
@@ -226,7 +249,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 
 // sendToBot is used to send a certain package and returns a bool of success
 func sendToBot(conn net.Conn, pkg []byte) bool {
-
+	log.Infoln("Send to bot: ", string(pkg))
 	_, err := conn.Write(pkg)
 	if err != nil {
 		log.Println("Lost connection")
@@ -236,73 +259,22 @@ func sendToBot(conn net.Conn, pkg []byte) bool {
 	return true
 }
 
-// deprecated - keyIntepreter is used for manual control
-
-var lastKey string
-var currentKey string
-var simpleKeys = []string{"u", "d", "p", "b"}
-var keyTranslator = map[string]string{
-	"left":  "L",
-	"right": "R",
-	"up":    "F",
-	"down":  "B",
-}
-
-func keyIntepreter(key string) []byte {
-	remove := strings.HasPrefix(key, "\\")
-	if remove {
-		key = strings.Replace(key, "\\", "", 1)
+func manControlInt(input string) (out []byte) {
+	out = append(out, byte(input[0]))
+	if arg, err := strconv.Atoi(input[1:]); err == nil {
+		out = append(out, byte(arg))
 	}
-
-	for _, sk := range simpleKeys {
-		if key != sk {
-			continue
-		}
-		if !remove {
-			return []byte(key)
-		}
-		return []byte{}
-	}
-
-	if strings.HasSuffix(key, "space") {
-		if remove {
-			return []byte("s")
-		} else {
-			return []byte("S")
-		}
-	}
-
-	if remove {
-		if currentKey == key {
-			if lastKey != "" {
-				currentKey = lastKey
-				lastKey = ""
-				return []byte(keyTranslator[currentKey])
-			}
-			currentKey = ""
-			return []byte("!")
-		} else if lastKey == key {
-			lastKey = ""
-			return []byte("")
-		}
-	}
-	if currentKey != key {
-		lastKey = currentKey
-	}
-
-	if key == "" {
-		return []byte("!")
-	}
-	currentKey = key
-	return []byte(keyTranslator[key])
+	return
 }
 
 // calcRotation checks if the rotation is clockwise or counter clockwise, and returns the command with the angle as a argument
 func calcRotation(angle int) []byte {
-	if angle > 0 {
-		return []byte{[]byte("L")[0], byte(angle)}
-	} else if angle < 0 {
-		return []byte{[]byte("R")[0], byte(-angle)}
+	if angle > 180 {
+		return []byte{[]byte("L")[0], byte(angle - 180)}
+	} else if angle < 0 { //if angle < 0 {
+		return []byte{[]byte("L")[0], byte(-angle)}
+	} else if angle > 0 {
+		return []byte{[]byte("R")[0], byte(angle)}
 	}
 	return nil
 }

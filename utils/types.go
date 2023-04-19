@@ -20,6 +20,7 @@ const (
 
 type PixelDistType struct {
 	Definition float64
+	Angle      int
 	MU         sync.RWMutex
 }
 
@@ -45,6 +46,17 @@ func SetPixelDist(in float64) {
 	pixelDist.MU.RLock()
 	defer pixelDist.MU.RUnlock()
 	pixelDist.Definition = in
+}
+
+func GetPixelAngle() int {
+	pixelDist.MU.RLock()
+	defer pixelDist.MU.RUnlock()
+	return pixelDist.Angle
+}
+func SetPixelAngle(in int) {
+	pixelDist.MU.RLock()
+	defer pixelDist.MU.RUnlock()
+	pixelDist.Angle = in
 }
 
 func (p1 PointType) Dist(p2 PointType) (angle int, len int) {
@@ -103,4 +115,11 @@ func Pop(slice *[]PointType) PointType {
 	rv := (*slice)[f-1]
 	*slice = (*slice)[:f-1]
 	return rv
+}
+
+func (point PointType) CalcNextPos(distance int) PointType {
+	radian := float64(point.Angle) * math.Pi / 180.0
+	newX := point.X - int(float64(distance)*math.Cos(radian)+0.5)
+	newY := point.Y - int(float64(distance)*math.Sin(radian)+0.5)
+	return PointType{X: newX, Y: newY, Angle: point.Angle}
 }

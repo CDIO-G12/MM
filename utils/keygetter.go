@@ -36,6 +36,5 @@ func KeyGet(keyChan chan<- string) {
 			log.Infof("Keygetter got: %s", string(buffer[0:len]))
 			keyChan <- string(buffer[0:len])
 		}
-
 	}
 }

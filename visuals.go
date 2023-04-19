@@ -23,6 +23,7 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 	orangeBall := u.PointType{X: 0, Y: 0}
 	goalPos := u.PointType{X: 200, Y: 400}
 	active := false
+	lastCorners := [4]u.PointType{}
 
 	// this routine handles commands comming from the robot
 	go func() {
@@ -120,97 +121,107 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 
 			// Convert the recieved to string
 			recString := string(buffer[0:rLen])
-			//log.Info("Visuals received: ", recString)
+			outerSplit := strings.Split(recString, "\n")
 
-			// Quickly check if it is an emergency
-			if strings.Contains(recString, "!") {
-				poiChan <- u.PoiType{Category: u.Emergency}
-				continue
-			}
-
-			// Otherwise we split it to seperate commands
-			split := strings.Split(recString, "/")
-			// That should be at least 3 long
-			if len(split) < 3 {
-				continue
-			}
-
-			// The first part of the command, is the type
-			switch split[0] {
-			case "o": //orange ball - recieve position as 'o/x/y'
-				if tempX, err := strconv.Atoi(split[1]); err == nil {
-					if tempY, err := strconv.Atoi(split[2]); err == nil {
-						orangeBall.X = tempX
-						orangeBall.Y = tempY
-					}
+			for _, recString := range outerSplit {
+				if u.VisualDebugLog {
+					log.Info("Visuals received: ", recString)
 				}
 
-			case "r": //robot - recieve current position as 'r/x/y/r' - r is angle
-				if tempX, err := strconv.Atoi(split[1]); err == nil {
-					if tempY, err := strconv.Atoi(split[2]); err == nil {
-						if tempR, err := strconv.Atoi(split[3]); err == nil {
-							currentPos.X = tempX
-							currentPos.Y = tempY
-							if tempR < -90 {
-								currentPos.Angle = tempR + 270
-							} else {
-								currentPos.Angle = tempR - 90
+				// Quickly check if it is an emergency
+				if strings.Contains(recString, "!") {
+					poiChan <- u.PoiType{Category: u.Emergency}
+					continue
+				}
+
+				// Otherwise we split it to seperate commands
+				split := strings.Split(recString, "/")
+				// That should be at least 3 long
+				if len(split) < 3 {
+					continue
+				}
+
+				// The first part of the command, is the type
+				switch split[0] {
+				case "o": //orange ball - recieve position as 'o/x/y'
+					if tempX, err := strconv.Atoi(split[1]); err == nil {
+						if tempY, err := strconv.Atoi(split[2]); err == nil {
+							orangeBall.X = tempX
+							orangeBall.Y = tempY
+						}
+					}
+
+				case "r": //robot - recieve current position as 'r/x/y/r' - r is angle
+					if tempX, err := strconv.Atoi(split[1]); err == nil {
+						if tempY, err := strconv.Atoi(split[2]); err == nil {
+							if tempR, err := strconv.Atoi(split[3]); err == nil {
+								currentPos.X = tempX
+								currentPos.Y = tempY
+								if tempR < -90 {
+									currentPos.Angle = tempR + 270
+								} else {
+									currentPos.Angle = tempR - 90
+								}
+								log.Info("Updated currentpos: ", currentPos)
 							}
-							//log.Info("Updated currentpos: ", currentPos)
 						}
 					}
-				}
 
-			case "b": //ball - recieve current position as 'b/x/y'
-				if split[1] == "r" { // reset
-					ballBuffer = []u.PointType{}
-					//log.Info("Visuals: reset ball buffer")
-					continue
-				} else if split[1] == "d" { // list done
-					if checkForNewBalls(balls, ballBuffer) {
-						balls = make([]u.PointType, len(ballBuffer))
-						copy(balls, ballBuffer)
-						commandChan <- "compute"
+				case "b": //ball - recieve current position as 'b/x/y'
+					if split[1] == "r" { // reset
+						ballBuffer = []u.PointType{}
+						//log.Info("Visuals: reset ball buffer")
+						continue
+					} else if split[1] == "d" { // list done
+						if checkForNewBalls(balls, ballBuffer) {
+							balls = make([]u.PointType, len(ballBuffer))
+							copy(balls, ballBuffer)
+							commandChan <- "compute"
+						}
+						continue
 					}
-					continue
-				}
-				ball := u.PointType{}
-				if tempX, err := strconv.Atoi(split[1]); err == nil {
-					if tempY, err := strconv.Atoi(split[2]); err == nil {
-						ball.X = tempX
-						ball.Y = tempY
-						ballBuffer = append(ballBuffer, ball)
-					}
-				}
-
-			case "c": // corner
-				if tempI, err := strconv.Atoi(split[1]); err == nil {
-					if tempX, err := strconv.Atoi(split[2]); err == nil {
-						if tempY, err := strconv.Atoi(split[3]); err == nil {
-							poiChan <- u.PoiType{Category: u.Corner, Point: u.PointType{X: tempX, Y: tempY, Angle: tempI}}
+					ball := u.PointType{}
+					if tempX, err := strconv.Atoi(split[1]); err == nil {
+						if tempY, err := strconv.Atoi(split[2]); err == nil {
+							ball.X = tempX
+							ball.Y = tempY
+							ballBuffer = append(ballBuffer, ball)
 						}
 					}
-				}
 
-			case "m": // middle x
-				if tempI, err := strconv.Atoi(split[1]); err == nil {
-					if tempX, err := strconv.Atoi(split[2]); err == nil {
-						if tempY, err := strconv.Atoi(split[3]); err == nil {
-							poiChan <- u.PoiType{Category: u.MiddleXcorner, Point: u.PointType{X: tempX, Y: tempY, Angle: tempI}}
+				case "c": // corner
+					if tempI, err := strconv.Atoi(split[1]); err == nil && tempI < 4 {
+						if tempX, err := strconv.Atoi(split[2]); err == nil {
+							if tempY, err := strconv.Atoi(split[3]); err == nil {
+								corner := u.PointType{X: tempX, Y: tempY, Angle: tempI}
+								if lastCorners[tempI] != corner {
+									lastCorners[tempI] = corner
+									poiChan <- u.PoiType{Category: u.Corner, Point: corner}
+								}
+							}
 						}
 					}
-				}
 
-			case "p": // pixel distance
-				log.Info("PixelDist: ", split)
-				if s, err := strconv.ParseFloat(split[2], 32); err == nil {
-					u.SetPixelDist(s)
-				}
-			case "g": // goal
-				if tempX, err := strconv.Atoi(split[1]); err == nil {
-					if tempY, err := strconv.Atoi(split[2]); err == nil {
-						goalPos.X = tempX
-						goalPos.Y = tempY
+				case "m": // middle x
+					if tempI, err := strconv.Atoi(split[1]); err == nil {
+						if tempX, err := strconv.Atoi(split[2]); err == nil {
+							if tempY, err := strconv.Atoi(split[3]); err == nil {
+								poiChan <- u.PoiType{Category: u.MiddleXcorner, Point: u.PointType{X: tempX, Y: tempY, Angle: tempI}}
+							}
+						}
+					}
+
+				case "p": // pixel distance
+					log.Info("PixelDist: ", split)
+					if s, err := strconv.ParseFloat(split[2], 32); err == nil {
+						u.SetPixelDist(s)
+					}
+				case "g": // goal
+					if tempX, err := strconv.Atoi(split[1]); err == nil {
+						if tempY, err := strconv.Atoi(split[2]); err == nil {
+							goalPos.X = tempX
+							goalPos.Y = tempY
+						}
 					}
 				}
 			}
