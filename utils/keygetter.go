@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"net"
 	"time"
 
@@ -18,7 +19,7 @@ func KeyGet(keyChan chan<- string) {
 	buffer := make([]byte, 128)
 	log.Info("Dialing keygetter")
 	for {
-		conn, err := net.Dial("tcp", "localhost:10023")
+		conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", IP, keyGetterPort))
 		if err != nil {
 			time.Sleep(reconnTimer.Duration())
 			continue
@@ -28,9 +29,11 @@ func KeyGet(keyChan chan<- string) {
 			len, err := conn.Read(buffer)
 			if err != nil {
 				log.Errorf("Keygetter: error reading: %v", err)
-				keyChan <- "!"
+				//keyChan <- "!"
+				conn.Close()
 				break
 			}
+			log.Infof("Keygetter got: %s", string(buffer[0:len]))
 			keyChan <- string(buffer[0:len])
 		}
 

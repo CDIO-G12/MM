@@ -14,7 +14,7 @@ import (
 )
 
 // initVisualServer hold the visual server and handles stuff
-func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string, pixelDist *u.PixelDistType) {
+func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 	log.Info("Visual server started")
 	//go imageReciever()
 	balls := []u.PointType{}
@@ -204,9 +204,7 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string, pixelDi
 			case "p": // pixel distance
 				log.Info("PixelDist: ", split)
 				if s, err := strconv.ParseFloat(split[2], 32); err == nil {
-					pixelDist.MU.Lock()
-					pixelDist.Definition = s
-					pixelDist.MU.Unlock()
+					u.SetPixelDist(s)
 				}
 			case "g": // goal
 				if tempX, err := strconv.Atoi(split[1]); err == nil {

@@ -9,7 +9,7 @@ import (
 
 func setupFrame() *FrameType {
 	poiChan := make(chan u.PoiType)
-	frame := NewFrame(poiChan, &u.PixelDistType{Definition: 0.10})
+	frame := NewFrame(poiChan)
 	poiChan <- u.PoiType{Point: u.PointType{X: 50, Y: 50, Angle: 0}, Category: u.Corner}
 	poiChan <- u.PoiType{Point: u.PointType{X: 250, Y: 50, Angle: 1}, Category: u.Corner}
 	poiChan <- u.PoiType{Point: u.PointType{X: 250, Y: 150, Angle: 2}, Category: u.Corner}
@@ -51,7 +51,7 @@ func TestFrame2(t *testing.T) {
 	if !reflect.DeepEqual(moves, []u.PointType{{X: 100, Y: 240}, {X: 60, Y: 100}}) {
 		t.FailNow()
 	}
-	frame.createTestImg(moves, "t1")
+	frame.createTestImg(moves, "t2")
 }
 
 /*

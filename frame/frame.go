@@ -21,7 +21,7 @@ type FrameType struct {
 	guideCorners [4]u.PointType
 }
 
-func NewFrame(poiChan <-chan u.PoiType, pixelDist *u.PixelDistType) *FrameType {
+func NewFrame(poiChan <-chan u.PoiType) *FrameType {
 	frame := FrameType{}
 
 	go func() {
@@ -145,7 +145,7 @@ func (f *FrameType) CreateMoves(currentPos u.PointType, nextPos u.PointType) (di
 
 func ManualTest() {
 	poiChan := make(chan u.PoiType)
-	frame := NewFrame(poiChan, &u.PixelDistType{Definition: 0.10})
+	frame := NewFrame(poiChan)
 	poiChan <- u.PoiType{Point: u.PointType{X: 50, Y: 50, Angle: 0}, Category: u.Corner}
 	poiChan <- u.PoiType{Point: u.PointType{X: 250, Y: 50, Angle: 1}, Category: u.Corner}
 	poiChan <- u.PoiType{Point: u.PointType{X: 250, Y: 150, Angle: 2}, Category: u.Corner}

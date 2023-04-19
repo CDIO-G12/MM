@@ -8,3 +8,5 @@ const BallCounterMax = 5
 
 const VisualPort = 8888
 const GuideCornerOffset = 10
+
+const keyGetterPort = 10023

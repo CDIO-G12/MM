@@ -14,7 +14,7 @@ import (
 )
 
 // initRobotServer is the main function for the robot server. In here are multiple goroutines and a statemachine to handle robot control.
-func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u.PoiType, commandChan chan<- string, pixelDist *u.PixelDistType) {
+func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u.PoiType, commandChan chan<- string) {
 	addr := fmt.Sprintf("%s:%d", u.IP, u.RobotPort)
 	server, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -53,7 +53,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 
 				case key := <-keyChan: // Only used for manual control
 					log.Infoln(key)
-					_, err = conn.Write(keyIntepreter(key))
+					_, err = conn.Write([]byte(key))
 					if err != nil {
 						log.Println("Lost connection")
 						break loop
