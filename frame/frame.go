@@ -8,7 +8,6 @@ import (
 	"image/png"
 	"os"
 	"sync"
-	"time"
 
 	log "github.com/s00500/env_logger"
 )
@@ -130,25 +129,26 @@ func (f *FrameType) findClosestGuidePosition(position u.PointType) u.PointType {
 	return pos
 }
 
-func (f *FrameType) CreateMoves(currentPos u.PointType, nextPos u.PointType) (directions []u.PointType) {
+func (f *FrameType) CreateMoves(currentPos u.PointType, nextPos u.PoiType) (directions []u.PoiType) {
+	fmt.Println("Create moves:", currentPos, nextPos)
 	first := f.findClosestGuidePosition(currentPos)
-	last := f.findClosestGuidePosition(nextPos)
-	directions = append(directions, first)
+	last := f.findClosestGuidePosition(nextPos.Point)
+	directions = append(directions, u.PoiType{Point: first, Category: u.WayPoint})
 
 	/*TODO: Make middle positions
 
 	Check if middle x is in the way, and add more points
 	*/
 
-	directions = append(directions, last)
+	directions = append(directions, u.PoiType{Point: last, Category: nextPos.Category})
 
-	f.createTestImg([]u.PointType{currentPos, first, last, nextPos}, "Directions")
+	f.createTestImg([]u.PoiType{{Point: currentPos}, {Point: first}, {Point: last}, nextPos}, "Directions")
 
 	return
 }
 
 func ManualTest() {
-	poiChan := make(chan u.PoiType)
+	/*poiChan := make(chan u.PoiType)
 	frame := NewFrame(poiChan)
 	poiChan <- u.PoiType{Point: u.PointType{X: 50, Y: 50, Angle: 0}, Category: u.Corner}
 	poiChan <- u.PoiType{Point: u.PointType{X: 250, Y: 50, Angle: 1}, Category: u.Corner}
@@ -164,10 +164,10 @@ func ManualTest() {
 	moves = append(moves, nextPos)
 
 	fmt.Println(moves)
-	frame.createTestImg(moves, "t1")
+	frame.createTestImg(moves, "t1")*/
 }
 
-func (f *FrameType) createTestImg(points []u.PointType, name string) {
+func (f *FrameType) createTestImg(points []u.PoiType, name string) {
 	width := 700
 	height := 400
 
@@ -188,7 +188,7 @@ func (f *FrameType) createTestImg(points []u.PointType, name string) {
 	}
 
 	for i, p := range points {
-		img.Set(p.X, p.Y, colors[i])
+		img.Set(p.Point.X, p.Point.Y, colors[i])
 	}
 
 	// Encode as PNG.

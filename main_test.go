@@ -25,8 +25,8 @@ func Test_main(t *testing.T) {
 	*/
 
 	// this creates a channel and a routine for the key getter. Not used at the moment
-	keyChan := make(chan string)
-	go u.KeyGet(keyChan)
+	keyChan := make(chan string, 5)
+	//go u.KeyGet(keyChan)
 
 	// channels between visuals and robot server
 	commandChan := make(chan string)
@@ -63,6 +63,11 @@ func Test_main(t *testing.T) {
 
 			case strings.Contains(out, "B"):
 				currentPos = currentPos.CalcNextPos(-int(out[1]))
+
+			case strings.Contains(out, "S"):
+				robotIn <- "gb"
+				visChan <- currentPosToString(currentPos)
+				continue
 			}
 
 			visChan <- currentPosToString(currentPos)
@@ -89,7 +94,7 @@ func initializeVisuals(visChan chan<- string, currentPos u.PointType) {
 	visChan <- "c/3/25/125"
 	for i := 0; i < 2; i++ {
 		visChan <- "b/r/r"
-		visChan <- "b/50/50"
+		visChan <- "b/51/50"
 		visChan <- "b/200/40"
 		visChan <- "b/250/120"
 		visChan <- "b/d/d"

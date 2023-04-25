@@ -23,6 +23,8 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 	orangeBall := u.PointType{X: 0, Y: 0}
 	goalPos := u.PointType{X: 200, Y: 400}
 	active := false
+	robotActive := false
+	firstSend := false
 	lastCorners := [4]u.PointType{}
 
 	// this routine handles commands comming from the robot
@@ -37,6 +39,12 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 			// recieve command from robot, and handle
 			cmd := <-commandChan
 			switch cmd {
+			case "ready":
+				robotActive = true
+
+			case "off":
+				robotActive = false
+
 			case "first": // Send first ball
 				log.Infoln("First ball send")
 
@@ -46,8 +54,7 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 				}
 				if len(sortedBalls) > 0 {
 					poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
-				} else {
-					// do something if it has not found balls yet
+					firstSend = true
 				}
 
 			case "next": // Send next ball
@@ -77,8 +84,15 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 					return
 				}
 				log.Info("Computed balls: ", sortedBalls)
-				poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
-
+				if robotActive {
+					if !firstSend {
+						commandChan <- "first"
+						continue
+					}
+					time.Sleep(1 * time.Millisecond)
+					poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
+					log.Infoln("Send poi: ", u.PoiType{Point: sortedBalls[0], Category: u.Ball})
+				}
 			case "goal":
 				poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
 			}

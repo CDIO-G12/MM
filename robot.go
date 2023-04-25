@@ -14,6 +14,23 @@ import (
 	log "github.com/s00500/env_logger"
 )
 
+type states int
+
+const (
+	stateWait states = iota
+	stateMoving
+	stateExit
+	stateNextPosQueue
+	stateNextPos
+	stateNextMove
+	statePickup
+	stateDump
+	stateEmergency
+)
+
+var state = stateWait
+var stateMU = sync.Mutex{}
+
 // initRobotServer is the main function for the robot server. In here are multiple goroutines and a statemachine to handle robot control.
 func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u.PoiType, commandChan chan<- string) {
 	addr := fmt.Sprintf("%s:%d", u.IP, u.RobotPort)
@@ -24,8 +41,6 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 	defer server.Close()
 
 	log.Infoln("Robot server is running on:", addr)
-	stateMU := sync.RWMutex{}
-	state := "waiting"
 	for {
 		// Waiting for an incomming client
 		conn, err := server.Accept()
@@ -36,6 +51,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 		log.Infoln("Connected to robot at:", conn.RemoteAddr().String())
 
 		currentPos := u.PointType{}
+
 		nextPos := u.PoiType{}
 		ballCounter := 0
 
@@ -49,6 +65,34 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				defer conn.Close()
 
 				select {
+				case poi := <-poiChan: // Incomming point of interest
+					log.Infoln("Recieved POI", poi)
+					switch poi.Category { // Sorted by category
+					case u.Robot:
+						currentPos = poi.Point
+						log.Infoln("Updated current position: ", currentPos)
+						continue
+
+					case u.Emergency: // If emergency, we stop the robot
+						_, err = conn.Write([]byte("!"))
+						if err != nil {
+							log.Println("Lost connection")
+							break loop
+						}
+						setState(stateEmergency)
+
+					case u.Ball, u.Goal: //goal or ball
+						nextPos = poi
+						log.Infoln("Got next pos: ", poi)
+						if getState() == stateWait {
+							setState(stateNextPosQueue)
+						}
+
+					default:
+						log.Infoln("Recieved weird POI? - ", poi)
+					}
+					time.Sleep(time.Millisecond)
+
 				case <-ctx.Done(): // If another routine is closed, this will end this routine
 					break loop
 
@@ -60,36 +104,14 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						break loop
 					}
 
-				case poi := <-poiChan: // Incomming point of interest
-					switch poi.Category { // Sorted by category
-					case u.Robot:
-						currentPos = poi.Point
-						//log.Infoln("Updated current position: ", currentPos)
-
-					case u.Emergency: // If emergency, we stop the robot
-						_, err = conn.Write([]byte("!"))
-						if err != nil {
-							log.Println("Lost connection")
-							break loop
-						}
-						// Probably need to do more here
-
-					default: //goal or ball
-						nextPos = poi
-						log.Infoln("Got next pos: ", poi)
-						stateMU.Lock()
-						if state == "waiting" {
-							state = "nextPosQueue"
-						}
-						stateMU.Unlock()
-					}
 				}
 			}
+			log.Infoln("LOOP BROKE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 		}()
 
 		// This routine handles the incomming commands from the robot
 		go func() {
-			lastBall := time.Now()
+			lastBall := time.Now().Add(-2 * time.Second)
 			buffer := make([]byte, 32)
 			for {
 				// Read blocks until an incomming message comes, or the connection dies.
@@ -105,13 +127,17 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				// Check what kind of command is recieved, and handle them
 				switch {
 				case strings.Contains(recieved, "rd"): // ready - the initial command send, when the robot is ready to move
-					commandChan <- "pos"   // Ask for current position
+					commandChan <- "ready"
+					time.Sleep(time.Millisecond)
+					commandChan <- "pos" // Ask for current position
+					time.Sleep(time.Millisecond)
 					commandChan <- "first" // Send the first ball
+					time.Sleep(time.Millisecond)
 					log.Infoln("Robot ready!")
 
 				case strings.Contains(recieved, "gb"): // got ball - is send when the robot got a ball
 					// This might be send multiple types at once, so this will 'debounce' it
-					if time.Since(lastBall) < time.Second*2 {
+					if time.Since(lastBall) < time.Second {
 						continue
 					}
 					lastBall = time.Now()
@@ -130,46 +156,37 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					// Every time we are done with a move, we ask for the current position, and runs the next move
 					commandChan <- "pos"
 					time.Sleep(time.Second / 2)
-					stateMU.Lock()
-					state = "nextMove"
-					stateMU.Unlock()
+					setState(stateNextMove)
 				}
 			}
 			// if the loop is breaked, we cancel to stop the other routines
 			cancel()
-			state = "exit"
+			setState(stateExit)
 		}()
 
 		// This handles the state machine for the robot
-		localState := ""
-		positions := []u.PointType{}
-		nextGoto := u.PointType{}
+		positions := []u.PoiType{}
+		nextGoto := u.PoiType{}
 	loop:
 		for {
-			// critical read
-			stateMU.RLock()
-			localState = state
-			stateMU.RUnlock()
-
 			// main state machine
-			switch localState {
-			case "exit": // exit is sent to exit the state machine
+			switch getState() {
+			case stateExit: // exit is sent to exit the state machine
 				break loop
-			case "waiting": // Waits for a new state
+			case stateWait: // Waits for a new state
 				time.Sleep(100 * time.Millisecond)
 
-			case "moving": // Moving waits for a 'fm' command
+			case stateMoving: // Moving waits for a 'fm' command
 				time.Sleep(100 * time.Millisecond)
 
-			case "nextPosQueue": // Create new array of moves
+			case stateNextPosQueue: // Create new array of moves
 				commandChan <- "pos"
-				positions = frame.CreateMoves(currentPos, nextPos.Point)
+				time.Sleep(10 * time.Millisecond)
+				positions = frame.CreateMoves(currentPos, nextPos)
 				log.Infoln("Got position queue", positions)
-				stateMU.Lock()
-				state = "nextPos"
-				stateMU.Unlock()
+				setState(stateNextPos)
 
-			case "nextPos":
+			case stateNextPos:
 				commandChan <- "pos"
 				if len(positions) == 0 {
 					if _, temp := currentPos.Dist(nextPos.Point); temp < 5 {
@@ -183,29 +200,25 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						continue
 					}
 
-					stateMU.Lock()
-					state = "nextPosQueue"
-					stateMU.Unlock()
+					setState(stateNextPosQueue)
 					continue
 				}
 				nextGoto = u.Pop(&positions)
-				if nextGoto.X == 0 {
+				if nextGoto.Point.X == 0 {
 					log.Error("Error! Could not get next goto")
 					continue
 				}
-				stateMU.Lock()
-				state = "nextMove"
-				stateMU.Unlock()
+				setState(stateNextMove)
 
-			case "nextMove": // nextMove calculated the next move and sends it to the robot
+			case stateNextMove: // nextMove calculated the next move and sends it to the robot
 				commandChan <- "pos"
-				if nextGoto.X == 0 && nextGoto.Y == 0 {
-					stateMU.Lock()
-					state = "nextPos"
-					stateMU.Unlock()
+				time.Sleep(50 * time.Millisecond)
+
+				if nextGoto.Point.X == 0 && nextGoto.Point.Y == 0 {
+					setState(stateNextPos)
 					continue
 				}
-				angle, dist := currentPos.Dist(nextGoto)
+				angle, dist := currentPos.Dist(nextGoto.Point)
 				log.Infof("Dist: %d, angle: %d, send angle: %d, next: %+v, current: %+v", dist, angle, angle-currentPos.Angle, nextGoto, currentPos)
 				// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
 				if ((angle < currentPos.Angle-5 || angle > currentPos.Angle+5) && dist > 5) || ((angle < currentPos.Angle-15 || angle > currentPos.Angle+15) && dist > 100) {
@@ -228,23 +241,55 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					// if we are very close to the wanted position we do something at some point
 				} else {
 					log.Infoln("Closing in!")
-					stateMU.Lock()
-					state = "nextPos"
-					stateMU.Unlock()
+					if nextGoto.Category == u.WayPoint {
+						setState(stateNextPos)
+					} else if nextGoto.Category == u.Ball {
+						setState(statePickup)
+					} else if nextGoto.Category == u.Goal {
+						setState(stateDump)
+					} else {
+						log.Infoln("This is akward...", nextGoto)
+						time.Sleep(time.Second)
+					}
 					continue
 				}
 				// set the new state to moving
 				log.Infoln("Moving!")
-				stateMU.Lock()
-				state = "moving"
-				stateMU.Unlock()
+				setState(stateMoving)
 
-			case "emergency":
+			case statePickup:
+				success := sendToBot(conn, []byte{[]byte("S")[0], 0})
+				if !success {
+					break loop
+				}
+				setState(stateWait)
+
+			case stateDump:
+				log.Infoln("GOOOOOOOOOOOOOOOOOOOOOAAAAALL!!!!")
+				success := sendToBot(conn, []byte{[]byte("D")[0], byte(ballCounter)})
+				if !success {
+					break loop
+				}
+				setState(stateWait)
+
+			case stateEmergency:
 				log.Println("Emergency!")
 				time.Sleep(500 * time.Millisecond)
 			}
 		}
 	}
+}
+
+func getState() states {
+	stateMU.Lock()
+	defer stateMU.Unlock()
+	return state
+}
+
+func setState(newState states) {
+	stateMU.Lock()
+	defer stateMU.Unlock()
+	state = newState
 }
 
 // sendToBot is used to send a certain package and returns a bool of success
@@ -270,7 +315,9 @@ func manControlInt(input string) (out []byte) {
 // calcRotation checks if the rotation is clockwise or counter clockwise, and returns the command with the angle as a argument
 func calcRotation(angle int) []byte {
 	if angle > 180 {
-		return []byte{[]byte("L")[0], byte(angle - 180)}
+		return []byte{[]byte("L")[0], byte(180 - (angle - 180))}
+	} else if angle < -180 {
+		return []byte{[]byte("R")[0], byte(180 + (angle + 180))}
 	} else if angle < 0 { //if angle < 0 {
 		return []byte{[]byte("L")[0], byte(-angle)}
 	} else if angle > 0 {

@@ -1,6 +1,6 @@
 module MM
 
-go 1.19
+go 1.20
 
 require (
 	github.com/jpillora/backoff v1.0.0

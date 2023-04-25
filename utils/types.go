@@ -16,6 +16,7 @@ const (
 	Goal
 	Corner
 	MiddleXcorner
+	WayPoint
 )
 
 type PixelDistType struct {
@@ -68,6 +69,7 @@ func (p1 PointType) Dist(p2 PointType) (angle int, len int) {
 	theta := math.Atan2(float64(dy), float64(dx))
 	theta *= 180 / math.Pi
 	angle = int(theta) //+ 180
+	angle = CircularChecker(angle)
 
 	return
 }
@@ -110,7 +112,7 @@ func remove(slice []PointType, s int) []PointType {
 	return append(slice[:s], slice[s+1:]...)
 }
 
-func Pop(slice *[]PointType) PointType {
+func Pop(slice *[]PoiType) PoiType {
 	f := len(*slice)
 	rv := (*slice)[f-1]
 	*slice = (*slice)[:f-1]
