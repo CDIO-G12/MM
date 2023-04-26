@@ -133,14 +133,15 @@ func (f *FrameType) CreateMoves(currentPos u.PointType, nextPos u.PoiType) (dire
 	fmt.Println("Create moves:", currentPos, nextPos)
 	first := f.findClosestGuidePosition(currentPos)
 	last := f.findClosestGuidePosition(nextPos.Point)
-	directions = append(directions, u.PoiType{Point: first, Category: u.WayPoint})
+	//directions = append(directions, u.PoiType{Point: first, Category: u.WayPoint})
 
 	/*TODO: Make middle positions
 
 	Check if middle x is in the way, and add more points
 	*/
 
-	directions = append(directions, u.PoiType{Point: last, Category: nextPos.Category})
+	//directions = append(directions, u.PoiType{Point: last, Category: u.WayPoint})
+	directions = append(directions, nextPos)
 
 	f.createTestImg([]u.PoiType{{Point: currentPos}, {Point: first}, {Point: last}, nextPos}, "Directions")
 

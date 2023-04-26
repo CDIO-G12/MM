@@ -26,8 +26,9 @@ func main() {
 	// channels between visuals and robot server
 	commandChan := make(chan string)
 	poiChan := make(chan u.PoiType)
-	frame := f.NewFrame(poiChan)
-	go initVisualServer(poiChan, commandChan)
+	framePoiChan := make(chan u.PoiType)
+	frame := f.NewFrame(framePoiChan)
+	go initVisualServer(poiChan, framePoiChan, commandChan)
 	go initRobotServer(frame, keyChan, poiChan, commandChan)
 
 	// loop main, can enable prints of routines to watch out for too many go routines

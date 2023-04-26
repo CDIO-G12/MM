@@ -14,7 +14,7 @@ import (
 )
 
 // initVisualServer hold the visual server and handles stuff
-func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
+func initVisualServer(poiChan chan<- u.PoiType, framePoiChan chan<- u.PoiType, commandChan chan string) {
 	log.Info("Visual server started")
 	//go imageReciever()
 	balls := []u.PointType{}
@@ -22,22 +22,23 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 	currentPos := u.PointType{X: 200, Y: 200, Angle: 180}
 	orangeBall := u.PointType{X: 0, Y: 0}
 	goalPos := u.PointType{X: 200, Y: 400}
-	active := false
+	//active := false
 	robotActive := false
-	firstSend := false
+	//firstSend := false
 	lastCorners := [4]u.PointType{}
 
 	// this routine handles commands comming from the robot
 	go func() {
 		for {
 			// if it is not active, it will ignore commands from the robot
-			if !active {
+			/*if !active {
 				time.Sleep(100 * time.Millisecond)
 				continue
-			}
+			}*/
 
 			// recieve command from robot, and handle
 			cmd := <-commandChan
+			//fmt.Println("Recieved: ", cmd)
 			switch cmd {
 			case "ready":
 				robotActive = true
@@ -54,7 +55,7 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 				}
 				if len(sortedBalls) > 0 {
 					poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
-					firstSend = true
+					//firstSend = true
 				}
 
 			case "next": // Send next ball
@@ -65,16 +66,11 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 				if len(sortedBalls) == 0 {
 					poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
 					log.Infoln("Goal send")
+					continue
 				} else {
-					// channel sends blocks, so we open a new routine to not stop the current
-					go func() {
-						commandChan <- "compute"
-					}()
+					poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
 				}
-
-			case "pos": // Send current position
-				poiChan <- u.PoiType{Point: currentPos, Category: u.Robot}
-
+				fallthrough
 			case "compute": // compute ball positions
 				var err error
 				tempBalls := make([]u.PointType, len(balls))
@@ -85,14 +81,18 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 				}
 				log.Info("Computed balls: ", sortedBalls)
 				if robotActive {
-					if !firstSend {
-						commandChan <- "first"
+					/*if !firstSend {
+						go func() {
+							commandChan <- "first"
+						}()
 						continue
-					}
+					}*/
 					time.Sleep(1 * time.Millisecond)
-					poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
-					log.Infoln("Send poi: ", u.PoiType{Point: sortedBalls[0], Category: u.Ball})
 				}
+
+			case "pos": // Send current position
+				poiChan <- u.PoiType{Point: currentPos, Category: u.Robot}
+
 			case "goal":
 				poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
 			}
@@ -118,7 +118,7 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 		log.Infoln("Connected to visuals at:", conn.RemoteAddr().String())
 		buffer := make([]byte, 128)
 		ballBuffer := []u.PointType{}
-		active = true
+		//active = true
 
 		for {
 			// Read blocks, so we wait for incoming command
@@ -166,17 +166,20 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 					}
 
 				case "r": //robot - recieve current position as 'r/x/y/r' - r is angle
-					if tempX, err := strconv.Atoi(split[1]); err == nil {
+					if tempX, err := strconv.Atoi(split[1]); err == nil && len(split) > 3 {
 						if tempY, err := strconv.Atoi(split[2]); err == nil {
 							if tempR, err := strconv.Atoi(split[3]); err == nil {
 								currentPos.X = tempX
 								currentPos.Y = tempY
-								if tempR < -90 {
+								/*if tempR < -90 {
 									currentPos.Angle = tempR + 270
 								} else {
 									currentPos.Angle = tempR - 90
-								}
-								log.Info("Updated currentpos: ", currentPos)
+								}*/
+								currentPos.Angle = u.DegreeAdd(tempR, -90)
+								//log.Info("Updated currentpos: ", currentPos)
+								framePoiChan <- u.PoiType{Point: currentPos, Category: u.Robot}
+								//poiChan <- u.PoiType{Point: currentPos, Category: u.Robot}
 							}
 						}
 					}
@@ -190,7 +193,7 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 						if checkForNewBalls(balls, ballBuffer) {
 							balls = make([]u.PointType, len(ballBuffer))
 							copy(balls, ballBuffer)
-							commandChan <- "compute"
+							//commandChan <- "compute"
 						}
 						continue
 					}
@@ -204,20 +207,20 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 					}
 
 				case "c": // corner
-					if tempI, err := strconv.Atoi(split[1]); err == nil && tempI < 4 {
+					if tempI, err := strconv.Atoi(split[1]); err == nil && tempI < 4 && len(split) > 3 {
 						if tempX, err := strconv.Atoi(split[2]); err == nil {
 							if tempY, err := strconv.Atoi(split[3]); err == nil {
 								corner := u.PointType{X: tempX, Y: tempY, Angle: tempI}
 								if lastCorners[tempI] != corner {
 									lastCorners[tempI] = corner
-									poiChan <- u.PoiType{Category: u.Corner, Point: corner}
+									framePoiChan <- u.PoiType{Category: u.Corner, Point: corner}
 								}
 							}
 						}
 					}
 
 				case "m": // middle x
-					if tempI, err := strconv.Atoi(split[1]); err == nil {
+					if tempI, err := strconv.Atoi(split[1]); err == nil && len(split) > 3 {
 						if tempX, err := strconv.Atoi(split[2]); err == nil {
 							if tempY, err := strconv.Atoi(split[3]); err == nil {
 								poiChan <- u.PoiType{Category: u.MiddleXcorner, Point: u.PointType{X: tempX, Y: tempY, Angle: tempI}}
@@ -226,26 +229,31 @@ func initVisualServer(poiChan chan<- u.PoiType, commandChan chan string) {
 					}
 
 				case "p": // pixel distance
-					log.Info("PixelDist: ", split)
+					//log.Info("PixelDist: ", split)
 					if s, err := strconv.ParseFloat(split[2], 32); err == nil {
 						u.SetPixelDist(s)
 					}
+
 				case "g": // goal
 					if tempX, err := strconv.Atoi(split[1]); err == nil {
 						if tempY, err := strconv.Atoi(split[2]); err == nil {
 							goalPos.X = tempX
 							goalPos.Y = tempY
+							framePoiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
 						}
 					}
 				}
 			}
 		}
-		active = false
+		//active = false
 	}
 }
 
 // checkForNewBalls will compare two slices and see if there are new elements
 func checkForNewBalls(old, recevied []u.PointType) bool {
+	if len(old) != len(recevied) {
+		return true
+	}
 	for _, n := range recevied {
 		found := false
 		for _, o := range old {

@@ -46,7 +46,8 @@ func GetPixelDist() float64 {
 func SetPixelDist(in float64) {
 	pixelDist.MU.RLock()
 	defer pixelDist.MU.RUnlock()
-	pixelDist.Definition = in
+	pixelDist.Definition = in / 113
+	//log.Infoln("Updated pixel def: ", pixelDist.Definition)
 }
 
 func GetPixelAngle() int {

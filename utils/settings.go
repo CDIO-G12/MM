@@ -1,6 +1,6 @@
 package utils
 
-const localhost = true
+const localhost = false
 const wifi = false
 
 const RobotPort = 9999

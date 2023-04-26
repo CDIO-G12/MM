@@ -62,8 +62,6 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 		go func() {
 		loop:
 			for {
-				defer conn.Close()
-
 				select {
 				case poi := <-poiChan: // Incomming point of interest
 					log.Infoln("Recieved POI", poi)
@@ -84,14 +82,11 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					case u.Ball, u.Goal: //goal or ball
 						nextPos = poi
 						log.Infoln("Got next pos: ", poi)
-						if getState() == stateWait {
-							setState(stateNextPosQueue)
-						}
+						setState(stateNextPosQueue)
 
 					default:
 						log.Infoln("Recieved weird POI? - ", poi)
 					}
-					time.Sleep(time.Millisecond)
 
 				case <-ctx.Done(): // If another routine is closed, this will end this routine
 					break loop
@@ -103,44 +98,44 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						log.Println("Lost connection")
 						break loop
 					}
-
 				}
 			}
 			log.Infoln("LOOP BROKE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+			conn.Close()
 		}()
 
 		// This routine handles the incomming commands from the robot
 		go func() {
-			lastBall := time.Now().Add(-2 * time.Second)
 			buffer := make([]byte, 32)
 			for {
 				// Read blocks until an incomming message comes, or the connection dies.
 				len, err := conn.Read(buffer)
 				if err != nil {
-					log.Println("Lost connection to robot")
+					log.Warnln("Lost connection to robot")
 					break
 				}
 				// We convert from []byte to string
 				recieved := string(buffer[0:len])
-				log.Println("Got from robot: ", recieved)
+				log.Infoln("Got from robot: ", recieved)
 
 				// Check what kind of command is recieved, and handle them
 				switch {
 				case strings.Contains(recieved, "rd"): // ready - the initial command send, when the robot is ready to move
-					commandChan <- "ready"
-					time.Sleep(time.Millisecond)
-					commandChan <- "pos" // Ask for current position
-					time.Sleep(time.Millisecond)
-					commandChan <- "first" // Send the first ball
-					time.Sleep(time.Millisecond)
-					log.Infoln("Robot ready!")
+					go func() {
+						log.Infoln("Robot ready!")
+						commandChan <- "ready"
+						log.Infoln("Robot ready2!")
+						time.Sleep(time.Millisecond)
+						commandChan <- "pos" // Ask for current position
+						time.Sleep(time.Millisecond)
+						commandChan <- "next" // Send the first ball
+						time.Sleep(time.Millisecond)
+						log.Infoln("Robot ready3!")
+					}()
+					log.Infoln("Robot ready3!")
 
 				case strings.Contains(recieved, "gb"): // got ball - is send when the robot got a ball
 					// This might be send multiple types at once, so this will 'debounce' it
-					if time.Since(lastBall) < time.Second {
-						continue
-					}
-					lastBall = time.Now()
 
 					// Count the ball, and keep track of how many balls are stored at the moment
 					ballCounter++
@@ -152,10 +147,11 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						commandChan <- "next"
 					}
 					// fallthrough
-				case strings.Contains(recieved, "fm"): //finished move - is sent when the robot has done a move, and is waiting for next instruction
+				case strings.Contains(recieved, ""): //finished move - is sent when the robot has done a move, and is waiting for next instruction
 					// Every time we are done with a move, we ask for the current position, and runs the next move
+					time.Sleep(time.Second)
 					commandChan <- "pos"
-					time.Sleep(time.Second / 2)
+					time.Sleep(10 * time.Millisecond)
 					setState(stateNextMove)
 				}
 			}
@@ -174,10 +170,10 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 			case stateExit: // exit is sent to exit the state machine
 				break loop
 			case stateWait: // Waits for a new state
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
 
-			case stateMoving: // Moving waits for a 'fm' command
-				time.Sleep(100 * time.Millisecond)
+			case stateMoving: // Moving waits for a '' command
+				time.Sleep(10 * time.Millisecond)
 
 			case stateNextPosQueue: // Create new array of moves
 				commandChan <- "pos"
@@ -219,9 +215,10 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					continue
 				}
 				angle, dist := currentPos.Dist(nextGoto.Point)
+				dist = int(float64(dist) * u.GetPixelDist())
 				log.Infof("Dist: %d, angle: %d, send angle: %d, next: %+v, current: %+v", dist, angle, angle-currentPos.Angle, nextGoto, currentPos)
 				// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
-				if ((angle < currentPos.Angle-5 || angle > currentPos.Angle+5) && dist > 5) || ((angle < currentPos.Angle-15 || angle > currentPos.Angle+15) && dist > 100) {
+				if ((angle < currentPos.Angle-5 || angle > currentPos.Angle+5) && dist > 30) || ((angle < currentPos.Angle-15 || angle > currentPos.Angle+15) && dist > 200) {
 					success := sendToBot(conn, calcRotation(angle-currentPos.Angle))
 					if !success {
 						break loop
@@ -233,7 +230,12 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						break loop
 					}
 					// if the distance is close, we send a fine forward
-				} else if dist > 3 {
+				} else if dist < 30 {
+					success := sendToBot(conn, []byte{[]byte("B")[0], byte(60 - dist)})
+					if !success {
+						break loop
+					}
+				} else if dist > 60 {
 					success := sendToBot(conn, []byte{[]byte("f")[0], byte(dist)})
 					if !success {
 						break loop
@@ -258,7 +260,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				setState(stateMoving)
 
 			case statePickup:
-				success := sendToBot(conn, []byte{[]byte("S")[0], 0})
+				success := sendToBot(conn, []byte{[]byte("T")[0], 0})
 				if !success {
 					break loop
 				}
@@ -290,6 +292,7 @@ func setState(newState states) {
 	stateMU.Lock()
 	defer stateMU.Unlock()
 	state = newState
+	log.Info("Updated state: ", state)
 }
 
 // sendToBot is used to send a certain package and returns a bool of success
