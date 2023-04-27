@@ -22,11 +22,11 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 	//go imageReciever()
 	balls := []u.PointType{}
 	sortedBalls := []u.PointType{}
-	currentPos := u.PointType{X: 200, Y: 200, Angle: 180}
+	currentPos := u.SafePointType{Point: u.PointType{X: 200, Y: 200, Angle: 180}}
 	orangeBall := u.PointType{X: 0, Y: 0}
 	goalPos := u.PointType{X: 200, Y: 400}
 	//active := false
-	//robotActive := false
+	robotActive := false
 	//firstSend := false
 	lastCorners := [4]u.PointType{}
 	sendChan := make(chan string, 5)
@@ -44,6 +44,11 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 			cmd := <-commandChan
 			//fmt.Println("Recieved: ", cmd)
 			switch cmd {
+			case "ready":
+				robotActive = true
+
+			case "gone":
+				robotActive = false
 
 			case "first": // Send first ball
 				log.Infoln("First ball send")
@@ -71,7 +76,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				}
 
 			case "pos": // Send current position
-				poiChan <- u.PoiType{Point: currentPos, Category: u.Robot}
+				poiChan <- u.PoiType{Point: currentPos.Get(), Category: u.Robot}
 
 			case "goal":
 				poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
@@ -99,9 +104,13 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 			continue
 		}
 		log.Infoln("Connected to visuals at:", conn.RemoteAddr().String())
-		buffer := make([]byte, 128)
+		buffer := make([]byte, 256)
 		ballBuffer := []u.PointType{}
 		//active = true
+
+		if robotActive {
+			poiChan <- u.PoiType{Category: u.Start}
+		}
 
 		go func() {
 			for {
@@ -134,9 +143,6 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 			outerSplit := strings.Split(recString, "\n")
 
 			for _, recString := range outerSplit {
-				if u.VisualDebugLog {
-					log.Info("Visuals received: ", recString)
-				}
 
 				// Quickly check if it is an emergency
 				if strings.Contains(recString, "!") {
@@ -149,6 +155,9 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				// That should be at least 3 long
 				if len(split) < 3 {
 					continue
+				}
+				if u.VisualDebugLog {
+					log.Info("Visuals received: ", recString, split)
 				}
 
 				// The first part of the command, is the type
@@ -165,17 +174,23 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					if tempX, err := strconv.Atoi(split[1]); err == nil && len(split) > 3 {
 						if tempY, err := strconv.Atoi(split[2]); err == nil {
 							if tempR, err := strconv.Atoi(split[3]); err == nil {
-								currentPos.X = tempX
-								currentPos.Y = tempY
+								current := u.PointType{}
+								current.X = tempX
+								current.Y = tempY
 								/*if tempR < -90 {
 									currentPos.Angle = tempR + 270
 								} else {
 									currentPos.Angle = tempR - 90
 								}*/
-								currentPos.Angle = u.DegreeAdd(tempR, -90)
-								//log.Info("Updated currentpos: ", currentPos)
-								framePoiChan <- u.PoiType{Point: currentPos, Category: u.Robot}
-								//poiChan <- u.PoiType{Point: currentPos, Category: u.Robot}
+								current.Angle = u.DegreeAdd(tempR, -90)
+								currentPos.Set(current)
+
+								//log.Info("Updated currentpos: ", current)
+
+								framePoiChan <- u.PoiType{Point: current, Category: u.Robot}
+								if robotActive {
+									poiChan <- u.PoiType{Point: current, Category: u.Robot}
+								}
 							}
 						}
 					}
@@ -191,11 +206,12 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 							copy(balls, ballBuffer)
 
 							var err error
-							sortedBalls, err = currentPos.SortBalls(ballBuffer)
-							if err != nil {
-								return
+							sortedBalls, err = currentPos.Get().SortBalls(ballBuffer)
+
+							if log.Should(err) {
+								continue
 							}
-							log.Info("Computed balls: ", sortedBalls)
+							//log.Info("Computed balls: ", sortedBalls)
 						}
 						continue
 					}
@@ -223,7 +239,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 										for i, v := range guide {
 											send += fmt.Sprintf("gc/%d/%d/%d\n", i, v.X, v.Y)
 										}
-										sendChan <- send
+										//sendChan <- send
 									}
 								}
 							}

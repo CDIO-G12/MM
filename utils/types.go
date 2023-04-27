@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"math"
 	"sync"
 )
@@ -12,11 +11,12 @@ const (
 	NA CategoryType = iota
 	Ball
 	Robot
-	Emergency
 	Goal
 	Corner
 	MiddleXcorner
 	WayPoint
+	Emergency
+	Start
 )
 
 type PixelDistType struct {
@@ -103,7 +103,6 @@ func (currentPos PointType) SortBalls(balls []PointType) (sortedBalls []PointTyp
 	origLength := len(balls)
 	if origLength < 2 {
 		sortedBalls = balls
-		err = fmt.Errorf("Only %d balls, can't sort", origLength)
 		return
 	}
 	//fmt.Println(currentPos.findRoute(balls, []pointType{}))

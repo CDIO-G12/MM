@@ -64,11 +64,11 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 			for {
 				select {
 				case poi := <-poiChan: // Incomming point of interest
-					log.Infoln("Recieved POI", poi)
+					//log.Infoln("Recieved POI", poi)
 					switch poi.Category { // Sorted by category
 					case u.Robot:
 						currentPos.Set(poi.Point)
-						log.Infoln("Updated current position: ", poi.Point)
+						//log.Infoln("Updated current position: ", poi.Point)
 						continue
 
 					case u.Emergency: // If emergency, we stop the robot
@@ -78,6 +78,11 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 							break loop
 						}
 						setState(stateEmergency)
+
+					case u.Start:
+						if getState() == stateEmergency {
+							setState(stateNextMove)
+						}
 
 					case u.Ball, u.Goal: //goal or ball
 						nextPos = poi
@@ -169,6 +174,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 			// main state machine
 			switch getState() {
 			case stateExit: // exit is sent to exit the state machine
+				commandChan <- "gone"
 				break loop
 
 			case stateWait: // Waits for a new state
@@ -222,11 +228,14 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				}
 				current := currentPos.Get()
 				angle, dist := current.Dist(nextGoto.Point)
-				pixDist := u.GetPixelDist()
-				dist = int(float64(dist)*pixDist) - int(11/pixDist)
+				dist = int(float64(dist)/u.GetPixelDist()) - 280 // convert pixel distance to distance in millimeter
+
 				log.Infof("Dist: %d, angle: %d, send angle: %d, next: %+v, current: %+v", dist, angle, angle-current.Angle, nextGoto, current)
+
+				commandChan <- fmt.Sprintf("%d/%d/255/200/0\n", nextGoto.Point.X, nextGoto.Point.Y)
+
 				// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
-				if ((angle < current.Angle-5 || angle > current.Angle+5) && dist > 30) || ((angle < current.Angle-15 || angle > current.Angle+15) && dist > 200) {
+				if ((angle < current.Angle-2 || angle > current.Angle+2) && dist > 5) || ((angle < current.Angle-15 || angle > current.Angle+15) && dist > 200) {
 					success := sendToBot(conn, calcRotation(angle-current.Angle))
 					if !success {
 						break loop
@@ -239,7 +248,12 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					}
 					// if the distance is close, we send a fine forward
 				} else if dist < 0 {
-					success := sendToBot(conn, []byte{[]byte("B")[0], byte(60 - dist)})
+					success := sendToBot(conn, []byte{[]byte("B")[0], byte(-dist)})
+					if !success {
+						break loop
+					}
+				} else if dist > 50 {
+					success := sendToBot(conn, []byte{[]byte("f")[0], byte(dist / 2)})
 					if !success {
 						break loop
 					}
@@ -275,8 +289,13 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				setState(stateWait)
 
 			case stateDump:
+				success := sendToBot(conn, calcRotation(0-currentPos.Get().Angle))
+				if !success {
+					break loop
+				}
+				time.Sleep(1 * time.Second)
 				log.Infoln("GOOOOOOOOOOOOOOOOOOOOOAAAAALL!!!!")
-				success := sendToBot(conn, []byte{[]byte("D")[0], byte(ballCounter)})
+				success = sendToBot(conn, []byte{[]byte("D")[0], byte(ballCounter)})
 				if !success {
 					break loop
 				}
@@ -305,7 +324,11 @@ func setState(newState states) {
 
 // sendToBot is used to send a certain package and returns a bool of success
 func sendToBot(conn net.Conn, pkg []byte) bool {
-	log.Infoln("Send to bot: ", string(pkg))
+	if len(pkg) > 1 {
+		log.Infoln("Send ", string(pkg[0]), pkg[1], " to robot")
+	} else {
+		log.Infoln("Send to bot: ", string(pkg))
+	}
 	_, err := conn.Write(pkg)
 	if err != nil {
 		log.Println("Lost connection")
