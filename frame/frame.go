@@ -64,21 +64,23 @@ func (f *FrameType) updateGuideCorners(cornerNr int) {
 	f.MU.Lock()
 	defer f.MU.Unlock()
 
+	offset := int(u.GuideCornerOffset / u.GetPixelDist())
+
 	f.guideCorners[cornerNr] = f.Corners[cornerNr]
 
 	switch cornerNr {
 	case 0:
-		f.guideCorners[0].X += u.GuideCornerOffset
-		f.guideCorners[0].Y += u.GuideCornerOffset
+		f.guideCorners[0].X += offset
+		f.guideCorners[0].Y += offset
 	case 1:
-		f.guideCorners[1].X -= u.GuideCornerOffset
-		f.guideCorners[1].Y += u.GuideCornerOffset
+		f.guideCorners[1].X -= offset
+		f.guideCorners[1].Y += offset
 	case 2:
-		f.guideCorners[2].X -= u.GuideCornerOffset
-		f.guideCorners[2].Y -= u.GuideCornerOffset
+		f.guideCorners[2].X -= offset
+		f.guideCorners[2].Y -= offset
 	case 3:
-		f.guideCorners[3].X += u.GuideCornerOffset
-		f.guideCorners[3].Y -= u.GuideCornerOffset
+		f.guideCorners[3].X += offset
+		f.guideCorners[3].Y -= offset
 	}
 }
 
@@ -202,4 +204,10 @@ func (f *FrameType) createTestImg(points []u.PoiType, name string) {
 		log.Fatal(err)
 	}
 	file.Close()
+}
+
+func (f *FrameType) GetGuideFrame() [4]u.PointType {
+	f.MU.Lock()
+	defer f.MU.Unlock()
+	return f.guideCorners
 }

@@ -33,7 +33,7 @@ func Test_main(t *testing.T) {
 	poiChan := make(chan u.PoiType)
 	framePoiChan := make(chan u.PoiType)
 	frame := f.NewFrame(framePoiChan)
-	go initVisualServer(poiChan, framePoiChan, commandChan)
+	go initVisualServer(frame, poiChan, framePoiChan, commandChan)
 	go initRobotServer(frame, keyChan, poiChan, commandChan)
 
 	visChan := make(chan string)
@@ -65,7 +65,11 @@ func Test_main(t *testing.T) {
 			case strings.Contains(out, "B"):
 				currentPos = currentPos.CalcNextPos(-int(out[1]))
 
-			case strings.Contains(out, "S"):
+			case strings.Contains(out, "D"):
+				robotIn <- "dc"
+				continue
+
+			case strings.Contains(out, "S"), strings.Contains(out, "T"):
 				robotIn <- "gb"
 				visChan <- currentPosToString(currentPos)
 				continue

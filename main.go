@@ -24,12 +24,20 @@ func main() {
 	go u.KeyGet(keyChan)
 
 	// channels between visuals and robot server
-	commandChan := make(chan string)
-	poiChan := make(chan u.PoiType)
-	framePoiChan := make(chan u.PoiType)
+	commandChan := make(chan string, 5)
+	poiChan := make(chan u.PoiType, 5)
+	framePoiChan := make(chan u.PoiType, 5)
 	frame := f.NewFrame(framePoiChan)
-	go initVisualServer(poiChan, framePoiChan, commandChan)
+	go initVisualServer(frame, poiChan, framePoiChan, commandChan)
 	go initRobotServer(frame, keyChan, poiChan, commandChan)
+
+	robotIn := make(chan string)
+	//robotOut := make(chan string)
+
+	time.Sleep(5 * time.Second)
+
+	//go ct.RobotClient(robotIn, robotOut)
+	robotIn <- "rd"
 
 	// loop main, can enable prints of routines to watch out for too many go routines
 	for {

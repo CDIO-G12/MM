@@ -25,7 +25,7 @@ type PixelDistType struct {
 	MU         sync.RWMutex
 }
 
-var pixelDist PixelDistType
+var pixelDist = PixelDistType{Definition: 1}
 
 type PointType struct {
 	X     int
@@ -36,6 +36,23 @@ type PointType struct {
 type PoiType struct {
 	Point    PointType
 	Category CategoryType
+}
+
+type SafePointType struct {
+	Point PointType
+	MU    sync.Mutex
+}
+
+func (p *SafePointType) Get() PointType {
+	p.MU.Lock()
+	defer p.MU.Unlock()
+	return p.Point
+}
+
+func (p *SafePointType) Set(new PointType) {
+	p.MU.Lock()
+	defer p.MU.Unlock()
+	p.Point = new
 }
 
 func GetPixelDist() float64 {

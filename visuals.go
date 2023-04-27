@@ -4,17 +4,20 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
+	f "MM/frame"
 	u "MM/utils"
 
 	log "github.com/s00500/env_logger"
 )
 
+var IsValid = regexp.MustCompile(`^[0-9\/gc]+$`).MatchString
+
 // initVisualServer hold the visual server and handles stuff
-func initVisualServer(poiChan chan<- u.PoiType, framePoiChan chan<- u.PoiType, commandChan chan string) {
+func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan chan<- u.PoiType, commandChan chan string) {
 	log.Info("Visual server started")
 	//go imageReciever()
 	balls := []u.PointType{}
@@ -23,9 +26,10 @@ func initVisualServer(poiChan chan<- u.PoiType, framePoiChan chan<- u.PoiType, c
 	orangeBall := u.PointType{X: 0, Y: 0}
 	goalPos := u.PointType{X: 200, Y: 400}
 	//active := false
-	robotActive := false
+	//robotActive := false
 	//firstSend := false
 	lastCorners := [4]u.PointType{}
+	sendChan := make(chan string, 5)
 
 	// this routine handles commands comming from the robot
 	go func() {
@@ -40,11 +44,6 @@ func initVisualServer(poiChan chan<- u.PoiType, framePoiChan chan<- u.PoiType, c
 			cmd := <-commandChan
 			//fmt.Println("Recieved: ", cmd)
 			switch cmd {
-			case "ready":
-				robotActive = true
-
-			case "off":
-				robotActive = false
 
 			case "first": // Send first ball
 				log.Infoln("First ball send")
@@ -70,31 +69,15 @@ func initVisualServer(poiChan chan<- u.PoiType, framePoiChan chan<- u.PoiType, c
 				} else {
 					poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
 				}
-				fallthrough
-			case "compute": // compute ball positions
-				var err error
-				tempBalls := make([]u.PointType, len(balls))
-				copy(tempBalls, balls)
-				sortedBalls, err = currentPos.SortBalls(tempBalls)
-				if err != nil {
-					return
-				}
-				log.Info("Computed balls: ", sortedBalls)
-				if robotActive {
-					/*if !firstSend {
-						go func() {
-							commandChan <- "first"
-						}()
-						continue
-					}*/
-					time.Sleep(1 * time.Millisecond)
-				}
 
 			case "pos": // Send current position
 				poiChan <- u.PoiType{Point: currentPos, Category: u.Robot}
 
 			case "goal":
 				poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
+
+			default:
+				sendChan <- cmd
 			}
 		}
 	}()
@@ -119,6 +102,19 @@ func initVisualServer(poiChan chan<- u.PoiType, framePoiChan chan<- u.PoiType, c
 		buffer := make([]byte, 128)
 		ballBuffer := []u.PointType{}
 		//active = true
+
+		go func() {
+			for {
+				data := <-sendChan
+				if data == "exit" {
+					break
+				}
+				_, err := conn.Write([]byte(data))
+				if log.Should(err) {
+					break
+				}
+			}
+		}()
 
 		for {
 			// Read blocks, so we wait for incoming command
@@ -193,7 +189,13 @@ func initVisualServer(poiChan chan<- u.PoiType, framePoiChan chan<- u.PoiType, c
 						if checkForNewBalls(balls, ballBuffer) {
 							balls = make([]u.PointType, len(ballBuffer))
 							copy(balls, ballBuffer)
-							//commandChan <- "compute"
+
+							var err error
+							sortedBalls, err = currentPos.SortBalls(ballBuffer)
+							if err != nil {
+								return
+							}
+							log.Info("Computed balls: ", sortedBalls)
 						}
 						continue
 					}
@@ -214,11 +216,19 @@ func initVisualServer(poiChan chan<- u.PoiType, framePoiChan chan<- u.PoiType, c
 								if lastCorners[tempI] != corner {
 									lastCorners[tempI] = corner
 									framePoiChan <- u.PoiType{Category: u.Corner, Point: corner}
+
+									if tempI == 3 {
+										guide := frame.GetGuideFrame()
+										send := ""
+										for i, v := range guide {
+											send += fmt.Sprintf("gc/%d/%d/%d\n", i, v.X, v.Y)
+										}
+										sendChan <- send
+									}
 								}
 							}
 						}
 					}
-
 				case "m": // middle x
 					if tempI, err := strconv.Atoi(split[1]); err == nil && len(split) > 3 {
 						if tempX, err := strconv.Atoi(split[2]); err == nil {
@@ -245,6 +255,7 @@ func initVisualServer(poiChan chan<- u.PoiType, framePoiChan chan<- u.PoiType, c
 				}
 			}
 		}
+		sendChan <- "exit"
 		//active = false
 	}
 }

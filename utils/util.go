@@ -2,6 +2,7 @@ package utils
 
 import (
 	"net"
+	"os"
 
 	log "github.com/s00500/env_logger"
 )
@@ -9,7 +10,8 @@ import (
 var IP = "localhost"
 
 func GetIp() {
-	if localhost {
+	local := os.Getenv("LOCAL")
+	if localhost || local != "" {
 		return
 	}
 	name := "Ethernet"
