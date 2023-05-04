@@ -18,16 +18,15 @@ var IsValid = regexp.MustCompile(`^[0-9\/gc]+$`).MatchString
 
 // initVisualServer hold the visual server and handles stuff
 func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan chan<- u.PoiType, commandChan chan string) {
-	log.Info("Visual server started")
 	//go imageReciever()
 	balls := []u.PointType{}
 	sortedBalls := []u.PointType{}
 	currentPos := u.SafePointType{Point: u.PointType{X: 200, Y: 200, Angle: 180}}
 	orangeBall := u.PointType{X: 0, Y: 0}
-	goalPos := u.PointType{X: 200, Y: 400}
+	goalPos := u.PointType{X: 250, Y: 300}
 	//active := false
 	robotActive := false
-	//firstSend := false
+	robotWaiting := false
 	lastCorners := [4]u.PointType{}
 	sendChan := make(chan string, 5)
 
@@ -60,6 +59,8 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				if len(sortedBalls) > 0 {
 					poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
 					//firstSend = true
+				} else {
+					robotWaiting = true
 				}
 
 			case "next": // Send next ball
@@ -68,8 +69,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					continue
 				}
 				if len(sortedBalls) == 0 {
-					poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
-					log.Infoln("Goal send")
+					robotWaiting = true
 					continue
 				} else {
 					poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
@@ -212,6 +212,11 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 								continue
 							}
 							//log.Info("Computed balls: ", sortedBalls)
+
+							if robotWaiting {
+								robotWaiting = false
+								poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
+							}
 						}
 						continue
 					}

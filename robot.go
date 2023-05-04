@@ -150,12 +150,12 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					// fallthrough
 				case strings.Contains(recieved, "fm"): //finished move - is sent when the robot has done a move, and is waiting for next instruction
 					// Every time we are done with a move, we ask for the current position, and runs the next move
-					time.Sleep(time.Second)
+					time.Sleep(time.Second / 7)
 					commandChan <- "pos"
 					time.Sleep(10 * time.Millisecond)
 					setState(stateNextMove)
 
-				case strings.Contains(recieved, "dc"):
+				case strings.Contains(recieved, "fd"):
 					ballCounter = 0
 					commandChan <- "next"
 
@@ -228,14 +228,16 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				}
 				current := currentPos.Get()
 				angle, dist := current.Dist(nextGoto.Point)
-				dist = int(float64(dist)/u.GetPixelDist()) - 280 // convert pixel distance to distance in millimeter
+				if nextGoto.Category == u.Ball {
+					dist = int(float64(dist)/u.GetPixelDist()) - 280 // convert pixel distance to distance in millimeter
+				}
 
 				log.Infof("Dist: %d, angle: %d, send angle: %d, next: %+v, current: %+v", dist, angle, angle-current.Angle, nextGoto, current)
 
 				commandChan <- fmt.Sprintf("%d/%d/255/200/0\n", nextGoto.Point.X, nextGoto.Point.Y)
 
 				// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
-				if ((angle < current.Angle-2 || angle > current.Angle+2) && dist > 5) || ((angle < current.Angle-15 || angle > current.Angle+15) && dist > 200) {
+				if (angle < current.Angle-2 || angle > current.Angle+2) || ((angle < current.Angle-20 || angle > current.Angle+20) && dist > 200) {
 					success := sendToBot(conn, calcRotation(angle-current.Angle))
 					if !success {
 						break loop
@@ -253,7 +255,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						break loop
 					}
 				} else if dist > 50 {
-					success := sendToBot(conn, []byte{[]byte("f")[0], byte(dist / 2)})
+					success := sendToBot(conn, []byte{[]byte("f")[0], byte(dist)})
 					if !success {
 						break loop
 					}
