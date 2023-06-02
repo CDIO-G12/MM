@@ -84,6 +84,19 @@ func (f *FrameType) updateGuideCorners(cornerNr int) {
 	}
 }
 
+func (f *FrameType) MiddleXPoint() u.PointType {
+	f.MU.RLock()
+	defer f.MU.RUnlock()
+
+	sumX := f.MiddleX[0].X + f.MiddleX[1].X + f.MiddleX[2].X + f.MiddleX[3].X
+	sumY := f.MiddleX[0].Y + f.MiddleX[1].Y + f.MiddleX[2].Y + f.MiddleX[3].Y
+
+	middleX := sumX / 4
+	middleY := sumY / 4
+
+	return u.PointType{X: middleX, Y: middleY}
+}
+
 func (f *FrameType) findClosestGuidePosition(position u.PointType) u.PointType {
 	f.MU.Lock()
 	defer f.MU.Unlock()
@@ -132,17 +145,19 @@ func (f *FrameType) findClosestGuidePosition(position u.PointType) u.PointType {
 }
 
 func (f *FrameType) CreateMoves(currentPos u.PointType, nextPos u.PoiType) (directions []u.PoiType) {
-	fmt.Println("Create moves:", currentPos, nextPos)
+	//fmt.Println("Create moves:", currentPos, nextPos)
 	first := f.findClosestGuidePosition(currentPos)
 	last := f.findClosestGuidePosition(nextPos.Point)
-	//directions = append(directions, u.PoiType{Point: first, Category: u.WayPoint})
+	directions = append(directions, u.PoiType{Point: first, Category: u.WayPoint})
+
+	//angle, dist := f.MiddleXPoint().Dist(currentPos)
 
 	/*TODO: Make middle positions
 
 	Check if middle x is in the way, and add more points
 	*/
 
-	//directions = append(directions, u.PoiType{Point: last, Category: u.WayPoint})
+	directions = append(directions, u.PoiType{Point: last, Category: u.WayPoint})
 	directions = append(directions, nextPos)
 
 	f.createTestImg([]u.PoiType{{Point: currentPos}, {Point: first}, {Point: last}, nextPos}, "Directions")

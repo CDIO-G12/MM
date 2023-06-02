@@ -24,6 +24,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 	currentPos := u.SafePointType{Point: u.PointType{X: 200, Y: 200, Angle: 180}}
 	orangeBall := u.PointType{X: 0, Y: 0}
 	goalPos := u.PointType{X: 250, Y: 300}
+	nextBall := u.PointType{}
 	//active := false
 	robotActive := false
 	robotWaiting := false
@@ -64,14 +65,21 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				}
 
 			case "next": // Send next ball
+				if orangeBall == nextBall {
+					orangeBall.X = 0
+				}
+
 				if orangeBall.X != 0 {
+					nextBall = orangeBall
 					poiChan <- u.PoiType{Point: orangeBall, Category: u.Ball}
 					continue
 				}
+
 				if len(sortedBalls) == 0 {
 					robotWaiting = true
 					continue
 				} else {
+					nextBall = sortedBalls[0]
 					poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
 				}
 
@@ -82,6 +90,19 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
 
 			default:
+				if strings.Contains(cmd, "check") {
+					spl := strings.Split(cmd, "/")
+					point := u.PointType{}
+					point.X, _ = strconv.Atoi(spl[1])
+					point.Y, _ = strconv.Atoi(spl[2])
+					if u.InArray(point, sortedBalls) || point.IsClose(orangeBall, 3) {
+						poiChan <- u.PoiType{Category: u.Found}
+					} else {
+						poiChan <- u.PoiType{Category: u.NotFound}
+					}
+					continue
+				}
+
 				sendChan <- cmd
 			}
 		}
@@ -217,6 +238,11 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 								robotWaiting = false
 								poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
 							}
+
+							for i, v := range sortedBalls {
+								sendChan <- fmt.Sprintf("b/%d/%d/%d\n", i, v.X, v.Y)
+							}
+
 						}
 						continue
 					}
@@ -225,7 +251,9 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						if tempY, err := strconv.Atoi(split[2]); err == nil {
 							ball.X = tempX
 							ball.Y = tempY
-							ballBuffer = append(ballBuffer, ball)
+							if _, l := currentPos.Point.Dist(ball); l > 50 {
+								ballBuffer = append(ballBuffer, ball)
+							}
 						}
 					}
 
@@ -250,6 +278,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 							}
 						}
 					}
+
 				case "m": // middle x
 					if tempI, err := strconv.Atoi(split[1]); err == nil && len(split) > 3 {
 						if tempX, err := strconv.Atoi(split[2]); err == nil {
@@ -263,6 +292,13 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					//log.Info("PixelDist: ", split)
 					if s, err := strconv.ParseFloat(split[2], 32); err == nil {
 						u.SetPixelDist(s)
+					}
+
+				case "f": // found
+					if split[1] == "t" {
+						poiChan <- u.PoiType{Category: u.Found}
+					} else {
+						poiChan <- u.PoiType{Category: u.NotFound}
 					}
 
 				case "g": // goal
@@ -289,7 +325,7 @@ func checkForNewBalls(old, recevied []u.PointType) bool {
 	for _, n := range recevied {
 		found := false
 		for _, o := range old {
-			if u.IsClose(o, n, 5) {
+			if o.IsClose(n, 3) {
 				found = true
 				break
 			}

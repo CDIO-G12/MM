@@ -89,6 +89,12 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						log.Infoln("Got next pos: ", poi)
 						setState(stateNextPosQueue)
 
+					case u.Found:
+						setState(statePickup)
+
+					case u.NotFound:
+						commandChan <- "next"
+
 					default:
 						log.Infoln("Recieved weird POI? - ", poi)
 					}
@@ -148,7 +154,8 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						commandChan <- "next"
 					}
 					// fallthrough
-				case strings.Contains(recieved, "fm"): //finished move - is sent when the robot has done a move, and is waiting for next instruction
+
+				case strings.Contains(recieved, "fm"): // finished move - is sent when the robot has done a move, and is waiting for next instruction
 					// Every time we are done with a move, we ask for the current position, and runs the next move
 					time.Sleep(time.Second / 7)
 					commandChan <- "pos"
@@ -237,7 +244,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				commandChan <- fmt.Sprintf("%d/%d/255/200/0\n", nextGoto.Point.X, nextGoto.Point.Y)
 
 				// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
-				if (angle < current.Angle-2 || angle > current.Angle+2) || ((angle < current.Angle-20 || angle > current.Angle+20) && dist > 200) {
+				if (angle < current.Angle-3 || angle > current.Angle+3) || ((angle < current.Angle-20 || angle > current.Angle+20) && dist > 200) {
 					success := sendToBot(conn, calcRotation(angle-current.Angle))
 					if !success {
 						break loop
@@ -249,7 +256,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						break loop
 					}
 					// if the distance is close, we send a fine forward
-				} else if dist < 0 {
+				} else if dist < -1 {
 					success := sendToBot(conn, []byte{[]byte("B")[0], byte(-dist)})
 					if !success {
 						break loop
@@ -259,7 +266,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					if !success {
 						break loop
 					}
-				} else if dist > 5 {
+				} else if dist > 10 {
 					success := sendToBot(conn, []byte{[]byte("f")[0], byte(dist)})
 					if !success {
 						break loop
@@ -270,7 +277,9 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					if nextGoto.Category == u.WayPoint {
 						setState(stateNextPos)
 					} else if nextGoto.Category == u.Ball {
-						setState(statePickup)
+						log.Infoln(fmt.Sprintf("check/%d/%d", nextGoto.Point.X, nextGoto.Point.Y))
+						commandChan <- fmt.Sprintf("check/%d/%d", nextGoto.Point.X, nextGoto.Point.Y)
+						setState(stateWait)
 					} else if nextGoto.Category == u.Goal {
 						setState(stateDump)
 					} else {

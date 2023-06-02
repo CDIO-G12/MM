@@ -47,3 +47,12 @@ func Abs(i int) int {
 func Avg(i1, i2 int) int {
 	return (i1 + i2) / 2
 }
+
+func InArray[K comparable](needle K, haystack []K) bool {
+	for _, v := range haystack {
+		if v == needle {
+			return true
+		}
+	}
+	return false
+}

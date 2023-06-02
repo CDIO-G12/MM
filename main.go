@@ -11,6 +11,8 @@ import (
 	log "github.com/s00500/env_logger"
 )
 
+//CLICOLOR_FORCE=1 go run .
+
 func main() {
 	// enable line numbers in log
 	log.EnableLineNumbers()

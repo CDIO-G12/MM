@@ -17,6 +17,8 @@ const (
 	WayPoint
 	Emergency
 	Start
+	Found
+	NotFound
 )
 
 type PixelDistType struct {
@@ -78,10 +80,10 @@ func SetPixelAngle(in int) {
 	pixelDist.Angle = in
 }
 
-func (p1 PointType) Dist(p2 PointType) (angle int, len int) {
+func (p1 PointType) Dist(p2 PointType) (angle int, dist int) {
 	first := math.Pow(float64(p2.X-p1.X), 2)
 	second := math.Pow(float64(p2.Y-p1.Y), 2)
-	len = int(math.Sqrt(first + second))
+	dist = int(math.Sqrt(first + second))
 	dx := p1.X - p2.X
 	dy := p1.Y - p2.Y
 	theta := math.Atan2(float64(dy), float64(dx))
@@ -93,7 +95,7 @@ func (p1 PointType) Dist(p2 PointType) (angle int, len int) {
 }
 
 // compares 2 points to see if they are close to each other
-func IsClose(old, new PointType, threshold int) bool {
+func (old PointType) IsClose(new PointType, threshold int) bool {
 	_, len := old.Dist(new)
 	return len < threshold
 }
