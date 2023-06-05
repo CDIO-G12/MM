@@ -9,12 +9,14 @@ import (
 	"strings"
 
 	f "MM/frame"
+	l "MM/log"
 	u "MM/utils"
 
 	log "github.com/s00500/env_logger"
 )
 
 var IsValid = regexp.MustCompile(`^[0-9\/gc]+$`).MatchString
+var visLog = l.Log_type{}
 
 // initVisualServer hold the visual server and handles stuff
 func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan chan<- u.PoiType, commandChan chan string) {
@@ -23,13 +25,15 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 	sortedBalls := []u.PointType{}
 	currentPos := u.SafePointType{Point: u.PointType{X: 200, Y: 200, Angle: 180}}
 	orangeBall := u.PointType{X: 0, Y: 0}
-	goalPos := u.PointType{X: 250, Y: 300}
+	goalPos := u.PointType{X: 240, Y: 277}
 	nextBall := u.PointType{}
 	//active := false
 	robotActive := false
 	robotWaiting := false
 	lastCorners := [4]u.PointType{}
 	sendChan := make(chan string, 5)
+	visLog = l.Init_log("Visuals", u.VisualPort-1)
+	visLog.Log("Visuals log connected")
 
 	// this routine handles commands comming from the robot
 	go func() {
@@ -47,24 +51,11 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 			case "ready":
 				robotActive = true
 
-			case "gone":
+			case "gone", "pause":
 				robotActive = false
 
-			case "first": // Send first ball
-				log.Infoln("First ball send")
-
-				if orangeBall.X != 0 {
-					poiChan <- u.PoiType{Point: orangeBall, Category: u.Ball}
-					continue
-				}
-				if len(sortedBalls) > 0 {
-					poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
-					//firstSend = true
-				} else {
-					robotWaiting = true
-				}
-
 			case "next": // Send next ball
+				robotActive = true
 				if orangeBall == nextBall {
 					orangeBall.X = 0
 				}
@@ -204,9 +195,11 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 									currentPos.Angle = tempR - 90
 								}*/
 								current.Angle = u.DegreeAdd(tempR, -90)
-								currentPos.Set(current)
 
-								//log.Info("Updated currentpos: ", current)
+								if currentPos.Get().IsClose(current, 5) {
+									visLog.Log("Updated currentpos: ", current)
+								}
+								currentPos.Set(current)
 
 								framePoiChan <- u.PoiType{Point: current, Category: u.Robot}
 								if robotActive {
@@ -228,11 +221,15 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 
 							var err error
 							sortedBalls, err = currentPos.Get().SortBalls(ballBuffer)
-
 							if log.Should(err) {
 								continue
 							}
-							//log.Info("Computed balls: ", sortedBalls)
+
+							if len(sortedBalls) < 1 {
+								continue
+							}
+
+							visLog.Log("Computed balls: ", sortedBalls)
 
 							if robotWaiting {
 								robotWaiting = false
@@ -241,6 +238,10 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 
 							for i, v := range sortedBalls {
 								sendChan <- fmt.Sprintf("b/%d/%d/%d\n", i, v.X, v.Y)
+							}
+
+							if nextBall != sortedBalls[0] && nextBall != orangeBall {
+								poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
 							}
 
 						}

@@ -207,6 +207,9 @@ func (f *FrameType) createTestImg(points []u.PoiType, name string) {
 
 	for i, p := range points {
 		img.Set(p.Point.X, p.Point.Y, colors[i])
+		img.Set(p.Point.X+1, p.Point.Y, colors[i])
+		img.Set(p.Point.X+1, p.Point.Y+1, colors[i])
+		img.Set(p.Point.X, p.Point.Y+1, colors[i])
 	}
 
 	// Encode as PNG.
