@@ -37,8 +37,6 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 	visLog := l.Init_log("Visuals", u.VisualPort-1)
 	visLog.Log("Visuals log connected")
 
-	stream := s.Init_streamer()
-
 	// this routine handles commands comming from the robot
 	go func() {
 		for {
@@ -71,9 +69,12 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					continue
 				}
 
+				ballBuffer := make([]u.PointType, len(sortedBalls))
+				copy(ballBuffer, sortedBalls)
+				sortedBalls, _ = currentPos.Get().SortBalls(ballBuffer)
+
 				if len(sortedBalls) == 0 {
-					robotWaiting = true
-					continue
+					poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
 				} else {
 					nextBall = sortedBalls[0]
 					poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
@@ -144,6 +145,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 			}
 		}()
 
+		stream := s.Init_streamer()
 		for {
 			// Read blocks, so we wait for incoming command
 			rLen, err := conn.Read(buffer)
@@ -156,7 +158,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				conn.Close()
 				break
 			}
-			if rLen > 2000 {
+			if rLen > 16000 {
 				//pass on video to udp stream.
 				stream.Send_data(buffer[0:rLen])
 				continue
@@ -268,9 +270,14 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						if tempY, err := strconv.Atoi(split[2]); err == nil {
 							ball.X = tempX
 							ball.Y = tempY
-							if !currentPos.Get().IsClose(ball, 100) {
-								ballBuffer = append(ballBuffer, ball)
+							current := currentPos.Get()
+							ang, dis := current.Dist(ball)
+							if dis < 50 {
+								if u.Abs(ang-current.Angle) < 15 {
+									continue
+								}
 							}
+							ballBuffer = append(ballBuffer, ball)
 						}
 					}
 
@@ -331,6 +338,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 			}
 		}
 		sendChan <- "exit"
+		stream.Close()
 		//active = false
 	}
 }

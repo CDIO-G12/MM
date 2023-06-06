@@ -314,8 +314,13 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				setState(stateWait)
 
 			case stateEmergency:
+				time.Sleep(1 * time.Second)
 				log.Println("Emergency!")
-				time.Sleep(500 * time.Millisecond)
+				success := sendToBot(conn, []byte{[]byte("B")[0], byte(50)})
+				if !success {
+					break loop
+				}
+				setState(stateWait)
 			}
 		}
 	}

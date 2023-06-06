@@ -93,7 +93,7 @@ func GetPixelDist() float64 {
 func SetPixelDist(in float64) {
 	pixelDist.MU.RLock()
 	defer pixelDist.MU.RUnlock()
-	pixelDist.Definition = in / 113
+	pixelDist.Definition = in / TrackingDistance
 	//log.Infoln("Updated pixel def: ", pixelDist.Definition)
 }
 
