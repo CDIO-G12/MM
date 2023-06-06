@@ -1,8 +1,8 @@
 package videostreamer
 
 import (
-	"fmt"
 	"net"
+	"os/exec"
 	"time"
 
 	log "github.com/s00500/env_logger"
@@ -23,7 +23,13 @@ func Init_streamer() (stream StreamType) {
 	}
 
 	go func() {
+		exec.Command("./videostreamer/video.exe").Run()
+	}()
+
+	go func() {
+	outerLoop:
 		for {
+
 			conn, err := net.DialUDP("udp", nil, raddr)
 			if err != nil {
 				time.Sleep(time.Second * 2)
@@ -31,14 +37,14 @@ func Init_streamer() (stream StreamType) {
 			}
 			stream.running = true
 			log.Info("Streaming...")
+
 			for {
 				data := <-stream.c
+				if data == nil {
+					break outerLoop
+				}
 				//fmt.Println(len(data))
-				/*if conn == nil {
-					break
-				}*/
 				_, err := conn.Write(data)
-				//fmt.Println(i, err)
 				if err != nil {
 					log.Warn(err)
 					break
@@ -54,8 +60,10 @@ func Init_streamer() (stream StreamType) {
 func (s StreamType) Send_data(data []byte) {
 	//fmt.Println(data)
 	select {
-	case s.c <- data: // Put 2 in the channel unless it is full
-	default:
-		fmt.Println("Channel full. Discarding value")
+	case s.c <- data: // Put in channel, unless channel is full
 	}
+}
+
+func (s StreamType) Close() {
+	s.c <- nil
 }
