@@ -11,12 +11,12 @@ import (
 	f "MM/frame"
 	l "MM/log"
 	u "MM/utils"
+	s "MM/videostreamer"
 
 	log "github.com/s00500/env_logger"
 )
 
 var IsValid = regexp.MustCompile(`^[0-9\/gc]+$`).MatchString
-var visLog = l.Log_type{}
 
 // initVisualServer hold the visual server and handles stuff
 func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan chan<- u.PoiType, commandChan chan string) {
@@ -31,9 +31,13 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 	robotActive := false
 	robotWaiting := false
 	lastCorners := [4]u.PointType{}
-	sendChan := make(chan string, 5)
-	visLog = l.Init_log("Visuals", u.VisualPort-1)
+	sendChan := make(chan string, 15)
+	//orangeFound := false
+
+	visLog := l.Init_log("Visuals", u.VisualPort-1)
 	visLog.Log("Visuals log connected")
+
+	stream := s.Init_streamer()
 
 	// this routine handles commands comming from the robot
 	go func() {
@@ -58,6 +62,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				robotActive = true
 				if orangeBall == nextBall {
 					orangeBall.X = 0
+					sendChan <- "no"
 				}
 
 				if orangeBall.X != 0 {
@@ -86,6 +91,8 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					point := u.PointType{}
 					point.X, _ = strconv.Atoi(spl[1])
 					point.Y, _ = strconv.Atoi(spl[2])
+					fmt.Println(spl)
+					fmt.Println(point)
 					if u.InArray(point, sortedBalls) || point.IsClose(orangeBall, 3) {
 						poiChan <- u.PoiType{Category: u.Found}
 					} else {
@@ -116,7 +123,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 			continue
 		}
 		log.Infoln("Connected to visuals at:", conn.RemoteAddr().String())
-		buffer := make([]byte, 256)
+		buffer := make([]byte, 65536)
 		ballBuffer := []u.PointType{}
 		//active = true
 
@@ -149,7 +156,11 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				conn.Close()
 				break
 			}
-
+			if rLen > 2000 {
+				//pass on video to udp stream.
+				stream.Send_data(buffer[0:rLen])
+				continue
+			}
 			// Convert the recieved to string
 			recString := string(buffer[0:rLen])
 			outerSplit := strings.Split(recString, "\n")
@@ -189,6 +200,10 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 								current := u.PointType{}
 								current.X = tempX
 								current.Y = tempY
+
+								if current.X < 2 || current.Y < 2 {
+									continue
+								}
 								/*if tempR < -90 {
 									currentPos.Angle = tempR + 270
 								} else {
@@ -196,7 +211,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 								}*/
 								current.Angle = u.DegreeAdd(tempR, -90)
 
-								if currentPos.Get().IsClose(current, 5) {
+								if !currentPos.Get().IsClose(current, 5) {
 									visLog.Log("Updated currentpos: ", current)
 								}
 								currentPos.Set(current)
@@ -231,18 +246,19 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 
 							visLog.Log("Computed balls: ", sortedBalls)
 
+							for i, v := range sortedBalls {
+								sendChan <- fmt.Sprintf("b/%d/%d/%d\n", i+1, v.X, v.Y)
+							}
+
 							if robotWaiting {
 								robotWaiting = false
 								poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
+								continue
 							}
 
-							for i, v := range sortedBalls {
-								sendChan <- fmt.Sprintf("b/%d/%d/%d\n", i, v.X, v.Y)
-							}
-
-							if nextBall != sortedBalls[0] && nextBall != orangeBall {
+							/*if nextBall != sortedBalls[0] && nextBall != orangeBall {
 								poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
-							}
+							}*/
 
 						}
 						continue
@@ -252,7 +268,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						if tempY, err := strconv.Atoi(split[2]); err == nil {
 							ball.X = tempX
 							ball.Y = tempY
-							if _, l := currentPos.Point.Dist(ball); l > 50 {
+							if !currentPos.Get().IsClose(ball, 100) {
 								ballBuffer = append(ballBuffer, ball)
 							}
 						}
@@ -305,6 +321,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				case "g": // goal
 					if tempX, err := strconv.Atoi(split[1]); err == nil {
 						if tempY, err := strconv.Atoi(split[2]); err == nil {
+							tempX += 150
 							goalPos.X = tempX
 							goalPos.Y = tempY
 							framePoiChan <- u.PoiType{Point: goalPos, Category: u.Goal}

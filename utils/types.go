@@ -21,6 +21,34 @@ const (
 	NotFound
 )
 
+func (s CategoryType) String() string {
+	switch s {
+	case NA:
+		return "na"
+	case Ball:
+		return "ball"
+	case Robot:
+		return "robot"
+	case Goal:
+		return "goal"
+	case Corner:
+		return "corner"
+	case MiddleXcorner:
+		return "middle x corner"
+	case WayPoint:
+		return "waypoint"
+	case Emergency:
+		return "emergency"
+	case Start:
+		return "start"
+	case Found:
+		return "found"
+	case NotFound:
+		return "not found"
+	}
+	return "cat"
+}
+
 type PixelDistType struct {
 	Definition float64
 	Angle      int

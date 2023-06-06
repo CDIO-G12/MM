@@ -69,7 +69,9 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 			for {
 				select {
 				case poi := <-poiChan: // Incomming point of interest
-					//robLog.Log("Recieved POI", poi)
+					if poi.Category != u.Robot {
+						robLog.Log("Recieved POI", poi)
+					}
 					switch poi.Category { // Sorted by category
 					case u.Robot:
 						currentPos.Set(poi.Point)
@@ -148,7 +150,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					}()
 
 				case strings.Contains(recieved, "gb"): // got ball - is send when the robot got a ball
-					// This might be send multiple types at once, so this will 'debounce' it
+					time.Sleep(time.Second)
 					commandChan <- "ready"
 
 					// Count the ball, and keep track of how many balls are stored at the moment
@@ -161,9 +163,12 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					}
 					// fallthrough
 
+				case strings.Contains(recieved, "nb"): // no ball - if it did not get a ball
+					commandChan <- "next"
+
 				case strings.Contains(recieved, "fm"): // finished move - is sent when the robot has done a move, and is waiting for next instruction
 					// Every time we are done with a move, we ask for the current position, and runs the next move
-					time.Sleep(time.Second / 10)
+					time.Sleep(time.Second)
 					setState(stateNextMove)
 
 				case strings.Contains(recieved, "fd"): // finish dump
@@ -189,11 +194,8 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				commandChan <- "gone"
 				break loop
 
-			case stateWait: // Waits for a new state
-				time.Sleep(10 * time.Millisecond)
-
-			case stateMoving: // Moving waits for a '' command
-				time.Sleep(10 * time.Millisecond)
+			case stateWait, stateMoving: // Waits for a new state
+				time.Sleep(100 * time.Millisecond)
 
 			case stateNextPosQueue: // Create new array of moves
 				positions = frame.CreateMoves(currentPos.Get(), nextPos)
@@ -215,6 +217,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 							//PickupBall
 						}
 						log.Info("Should do something here!! ", nextPos, currentPos.Get())
+						time.Sleep(time.Second)
 						continue
 					}
 					setState(stateNextPosQueue)
@@ -243,7 +246,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				commandChan <- fmt.Sprintf("%d/%d/255/200/0\n", nextGoto.Point.X, nextGoto.Point.Y)
 
 				// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
-				if ((angle < current.Angle-3 || angle > current.Angle+3) && nextGoto.Category == u.Ball) || (angle < current.Angle-10 || angle > current.Angle+10) || ((angle < current.Angle-20 || angle > current.Angle+20) && dist > 200) {
+				if ((angle < current.Angle-3 || angle > current.Angle+3) && nextGoto.Category == u.Ball) || (angle < current.Angle-10 || angle > current.Angle+10) || ((angle < current.Angle-20 || angle > current.Angle+20) && u.Abs(dist) > 200) {
 					success := sendToBot(conn, calcRotation(angle-current.Angle))
 					if !success {
 						break loop
@@ -259,12 +262,12 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						break loop
 					}
 				} else if dist < -1 {
-					success := sendToBot(conn, []byte{[]byte("B")[0], byte(-dist)})
+					success := sendToBot(conn, []byte{[]byte("B")[0], byte(-dist + 10)})
 					if !success {
 						break loop
 					}
 					// if the distance is close, we send a fine forward
-				} else if dist > 10 {
+				} else if dist > 15 {
 					success := sendToBot(conn, []byte{[]byte("f")[0], byte(dist)})
 					if !success {
 						break loop
@@ -304,7 +307,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				}
 				time.Sleep(1 * time.Second)
 				log.Infoln("GOOOOOOOOOOOOOOOOOOOOOAAAAALL!!!!")
-				success = sendToBot(conn, []byte{[]byte("D")[0], byte(ballCounter)})
+				success = sendToBot(conn, []byte{[]byte("D")[0], byte(2)})
 				if !success {
 					break loop
 				}

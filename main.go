@@ -42,7 +42,7 @@ func main() {
 	// loop main, can enable prints of routines to watch out for too many go routines
 	for {
 		time.Sleep(2 * time.Second)
-		//fmt.Println("goroutine: ", runtime.NumGoroutine())
+		//log.Info("goroutine: ", runtime.NumGoroutine())
 	}
 }
 
