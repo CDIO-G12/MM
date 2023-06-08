@@ -159,13 +159,6 @@ func remove(slice []PointType, s int) []PointType {
 	return append(slice[:s], slice[s+1:]...)
 }
 
-func Pop(slice *[]PoiType) PoiType {
-	f := len(*slice)
-	rv := (*slice)[f-1]
-	*slice = (*slice)[:f-1]
-	return rv
-}
-
 func (point PointType) CalcNextPos(distance int) PointType {
 	radian := float64(point.Angle) * math.Pi / 180.0
 	newX := point.X - int(float64(distance)*math.Cos(radian)+0.5)

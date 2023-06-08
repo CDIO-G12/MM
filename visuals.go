@@ -25,7 +25,8 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 	sortedBalls := []u.PointType{}
 	currentPos := u.SafePointType{Point: u.PointType{X: 200, Y: 200, Angle: 180}}
 	orangeBall := u.PointType{X: 0, Y: 0}
-	goalPos := u.PointType{X: 240, Y: 277}
+	goalPos := u.PointType{X: 48, Y: 355}
+	goalPos.X += int(u.MmToGoal * u.GetPixelDist())
 	nextBall := u.PointType{}
 	//active := false
 	robotActive := false
@@ -77,7 +78,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
 				} else {
 					nextBall = sortedBalls[0]
-					poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
+					poiChan <- u.PoiType{Point: nextBall, Category: u.Ball}
 				}
 
 			case "pos": // Send current position
@@ -232,37 +233,43 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						//log.Info("Visuals: reset ball buffer")
 						continue
 					} else if split[1] == "d" { // list done
-						if checkForNewBalls(balls, ballBuffer) {
-							balls = make([]u.PointType, len(ballBuffer))
-							copy(balls, ballBuffer)
-
-							var err error
-							sortedBalls, err = currentPos.Get().SortBalls(ballBuffer)
-							if log.Should(err) {
-								continue
-							}
-
-							if len(sortedBalls) < 1 {
-								continue
-							}
-
-							visLog.Log("Computed balls: ", sortedBalls)
-
-							for i, v := range sortedBalls {
-								sendChan <- fmt.Sprintf("b/%d/%d/%d\n", i+1, v.X, v.Y)
-							}
-
-							if robotWaiting {
-								robotWaiting = false
-								poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
-								continue
-							}
-
-							/*if nextBall != sortedBalls[0] && nextBall != orangeBall {
-								poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
-							}*/
-
+						if !checkForNewBalls(balls, ballBuffer) {
+							continue
 						}
+						balls = make([]u.PointType, len(ballBuffer))
+						copy(balls, ballBuffer)
+
+						var err error
+						sortedBalls, err = currentPos.Get().SortBalls(ballBuffer)
+						if log.Should(err) {
+							continue
+						}
+
+						if len(sortedBalls) < 1 {
+							continue
+						}
+
+						visLog.Log("Computed balls: ", sortedBalls)
+
+						for i, v := range sortedBalls {
+							sendChan <- fmt.Sprintf("b/%d/%d/%d\n", i+1, v.X, v.Y)
+						}
+
+						/*if !u.InArray(nextBall, sortedBalls) && !nextBall.IsClose(orangeBall, 4) {
+							poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
+							continue
+						}*/
+
+						if robotWaiting {
+							robotWaiting = false
+							poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
+							continue
+						}
+
+						/*if nextBall != sortedBalls[0] && nextBall != orangeBall {
+							poiChan <- u.PoiType{Point: sortedBalls[0], Category: u.Ball}
+						}*/
+
 						continue
 					}
 					ball := u.PointType{}
@@ -326,9 +333,10 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					}
 
 				case "g": // goal
+					continue
 					if tempX, err := strconv.Atoi(split[1]); err == nil {
 						if tempY, err := strconv.Atoi(split[2]); err == nil {
-							tempX += 150
+							tempX += int(u.MmToGoal * u.GetPixelDist())
 							goalPos.X = tempX
 							goalPos.Y = tempY
 							framePoiChan <- u.PoiType{Point: goalPos, Category: u.Goal}

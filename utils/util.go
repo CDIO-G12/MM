@@ -56,3 +56,10 @@ func InArray[K comparable](needle K, haystack []K) bool {
 	}
 	return false
 }
+
+func Pop[K any](slice *[]K) K {
+	f := len(*slice)
+	rv := (*slice)[f-1]
+	*slice = (*slice)[:f-1]
+	return rv
+}

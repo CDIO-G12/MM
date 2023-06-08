@@ -10,5 +10,6 @@ const TrackingDistance = 155
 const VisualPort = 8888
 const GuideCornerOffset = 50 //in mm
 const VisualDebugLog = false
+const MmToGoal = 330
 
 const keyGetterPort = 10023
