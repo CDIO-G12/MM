@@ -160,17 +160,7 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 	last := f.findClosestGuidePosition(nextPos.Point)
 	//directions = append(directions, u.PoiType{Point: first, Category: u.WayPoint})
 
-	/*
-		angleX, distX := f.MiddleXPoint().Dist(currentPos)
-		angleB, distB := nextPos.Point.Dist(currentPos)
-
-		if distB > distX {
-
-
-
-
-		}*/
-
+	directions = append(directions, f.CalculateWaypoint(nextPos)...)
 	/*TODO: Make middle positions
 
 	Check if middle x is in the way, and add more points
@@ -182,6 +172,33 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 	f.createTestImg([]u.PoiType{{Point: currentPos}, {Point: first}, {Point: last}, nextPos}, "Directions")
 
 	//directions = append(directions, nextPos)
+
+	return
+}
+
+func (f *FrameType) CalculateWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType) {
+
+	currentPos := u.CurrentPos.Get()
+
+	angleX, distX := currentPos.Dist(f.MiddleXPoint())
+	angleB, distB := currentPos.Dist(nextPos.Point)
+
+	safeDist := float64(25)
+
+	//Check if the next ball is on the other side of the middle x
+	if distX < distB {
+
+		//Check if the ball is clear of the middle x
+		if ((angleX + 10) < angleB) || ((angleX - 10) > angleB) {
+			return
+		}
+
+		x := f.MiddleXPoint().X + int(safeDist)
+		y := f.MiddleXPoint().Y + int(safeDist)
+
+		WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: x, Y: y}, Category: u.WayPoint})
+
+	}
 
 	return
 }

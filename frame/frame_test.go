@@ -58,6 +58,23 @@ func TestFrame2(t *testing.T) {
 	frame.createTestImg(moves, "t2")
 }
 
+func TestFrame3(t *testing.T) {
+	frame := setupFrame()
+
+	currentPos := u.PointType{X: 75, Y: 100}
+	nextPos := u.PoiType{Point: u.PointType{X: 225, Y: 100}, Category: u.Ball}
+	moves := []u.PoiType{{Point: currentPos, Category: u.WayPoint}}
+	moves = append(moves, frame.CreateMoves(nextPos)...)
+
+	t.Logf("m: %+v", moves)
+
+	if !reflect.DeepEqual(moves, []u.PointType{{X: 100, Y: 240}, {X: 60, Y: 100}}) {
+		t.FailNow()
+	}
+	frame.createTestImg(moves, "t2")
+
+}
+
 /*
 func createTestImg(points []u.PointType, name string) {
 	width := 250
