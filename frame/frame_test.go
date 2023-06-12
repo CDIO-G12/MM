@@ -14,6 +14,10 @@ func setupFrame() *FrameType {
 	poiChan <- u.PoiType{Point: u.PointType{X: 250, Y: 50, Angle: 1}, Category: u.Corner}
 	poiChan <- u.PoiType{Point: u.PointType{X: 250, Y: 150, Angle: 2}, Category: u.Corner}
 	poiChan <- u.PoiType{Point: u.PointType{X: 50, Y: 150, Angle: 3}, Category: u.Corner}
+	poiChan <- u.PoiType{Point: u.PointType{X: 145, Y: 95, Angle: 0}, Category: u.MiddleXcorner}
+	poiChan <- u.PoiType{Point: u.PointType{X: 155, Y: 95, Angle: 1}, Category: u.MiddleXcorner}
+	poiChan <- u.PoiType{Point: u.PointType{X: 145, Y: 105, Angle: 2}, Category: u.MiddleXcorner}
+	poiChan <- u.PoiType{Point: u.PointType{X: 155, Y: 105, Angle: 3}, Category: u.MiddleXcorner}
 
 	time.Sleep(time.Millisecond)
 
