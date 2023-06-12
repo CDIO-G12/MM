@@ -26,7 +26,7 @@ func TestFrame1(t *testing.T) {
 	currentPos := u.PointType{X: 100, Y: 250}
 	nextPos := u.PoiType{Point: u.PointType{X: 40, Y: 100}, Category: u.Ball}
 	moves := []u.PoiType{{Point: currentPos, Category: u.WayPoint}}
-	moves = append(moves, frame.CreateMoves(currentPos, nextPos)...)
+	moves = append(moves, frame.CreateMoves(nextPos)...)
 	moves = append(moves, nextPos)
 
 	t.Logf("m: %+v", moves)
@@ -43,7 +43,7 @@ func TestFrame2(t *testing.T) {
 	currentPos := u.PointType{X: 100, Y: 250}
 	nextPos := u.PoiType{Point: u.PointType{X: 20, Y: 110}, Category: u.Ball}
 	moves := []u.PoiType{{Point: currentPos, Category: u.WayPoint}}
-	moves = append(moves, frame.CreateMoves(currentPos, nextPos)...)
+	moves = append(moves, frame.CreateMoves(nextPos)...)
 	moves = append(moves, nextPos)
 
 	t.Logf("m: %+v", moves)

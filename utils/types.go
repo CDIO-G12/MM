@@ -10,7 +10,6 @@ type CategoryType int
 const (
 	NA CategoryType = iota
 	Ball
-	Robot
 	Goal
 	Corner
 	MiddleXcorner
@@ -27,8 +26,6 @@ func (s CategoryType) String() string {
 		return "na"
 	case Ball:
 		return "ball"
-	case Robot:
-		return "robot"
 	case Goal:
 		return "goal"
 	case Corner:
@@ -51,7 +48,6 @@ func (s CategoryType) String() string {
 
 type PixelDistType struct {
 	Definition float64
-	Angle      int
 	MU         sync.RWMutex
 }
 
@@ -72,6 +68,8 @@ type SafePointType struct {
 	Point PointType
 	MU    sync.Mutex
 }
+
+var CurrentPos = SafePointType{}
 
 func (p *SafePointType) Get() PointType {
 	p.MU.Lock()
@@ -95,17 +93,6 @@ func SetPixelDist(in float64) {
 	defer pixelDist.MU.RUnlock()
 	pixelDist.Definition = in / TrackingDistance
 	//log.Infoln("Updated pixel def: ", pixelDist.Definition)
-}
-
-func GetPixelAngle() int {
-	pixelDist.MU.RLock()
-	defer pixelDist.MU.RUnlock()
-	return pixelDist.Angle
-}
-func SetPixelAngle(in int) {
-	pixelDist.MU.RLock()
-	defer pixelDist.MU.RUnlock()
-	pixelDist.Angle = in
 }
 
 func (p1 PointType) Dist(p2 PointType) (angle int, dist int) {

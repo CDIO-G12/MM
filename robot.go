@@ -55,8 +55,6 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 		}
 		log.Infoln("Connected to robot at:", conn.RemoteAddr().String())
 
-		currentPos := u.SafePointType{}
-
 		nextPos := u.PoiType{}
 		ballCounter := 0
 
@@ -69,15 +67,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 			for {
 				select {
 				case poi := <-poiChan: // Incomming point of interest
-					if poi.Category != u.Robot {
-						robLog.Log("Recieved POI", poi)
-					}
 					switch poi.Category { // Sorted by category
-					case u.Robot:
-						currentPos.Set(poi.Point)
-						//log.Infoln("Updated current position: ", poi.Point)
-						continue
-
 					case u.Emergency: // If emergency, we stop the robot
 						_, err = conn.Write([]byte("!"))
 						if err != nil {
@@ -142,8 +132,6 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					go func() {
 						commandChan <- "ready"
 						time.Sleep(time.Millisecond)
-						commandChan <- "pos" // Ask for current position
-						time.Sleep(time.Millisecond)
 						commandChan <- "next" // Send the first ball
 						time.Sleep(time.Millisecond)
 						log.Infoln("Robot ready!")
@@ -159,7 +147,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					}
 					// fallthrough
 
-				case strings.Contains(recieved, "pb"): // pickedup ball - if it did not get a ball
+				case strings.Contains(recieved, "pb"): // pickedup ball
 					commandChan <- "ready"
 					commandChan <- "next"
 
@@ -180,9 +168,10 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 		}()
 
 		// This handles the state machine for the robot
-		positions := []u.PoiType{}
+		positionQueue := []u.PoiType{}
 		nextGoto := u.PoiType{}
 
+		//state machine
 	loop:
 		for {
 			// main state machine
@@ -195,22 +184,22 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				time.Sleep(100 * time.Millisecond)
 
 			case stateNextPosQueue: // Create new array of moves
-				positions = frame.CreateMoves(currentPos.Get(), nextPos)
-				log.Info("Got position queue", positions)
+				positionQueue = frame.CreateMoves(nextPos)
+				log.Info("Got position queue", positionQueue)
 				send := ""
-				for i, pos := range positions {
+				for i, pos := range positionQueue {
 					send += fmt.Sprintf("%d/%d/%d/%d/%d\n", pos.Point.X, pos.Point.Y, (100 + 25*i), (100 + 25*i), (100 + 25*i))
 				}
 				commandChan <- send
 				setState(stateNextPos)
 
 			case stateNextPos:
-				if len(positions) == 0 {
-					log.Info("Should do something here!! ", nextPos, currentPos.Get())
+				if len(positionQueue) == 0 {
+					log.Info("Should do something here!! ", nextPos, u.CurrentPos.Get())
 					setState(stateNextPosQueue)
 					continue
 				}
-				nextGoto = u.Pop(&positions)
+				nextGoto = u.Dequeue(&positionQueue)
 				if nextGoto.Point.X == 0 {
 					log.Error("Error! Could not get next goto")
 					continue
@@ -222,26 +211,38 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					setState(stateNextPos)
 					continue
 				}
-				current := currentPos.Get()
+				current := u.CurrentPos.Get()
 				angle, dist := current.Dist(nextGoto.Point)
+				dist = int(float64(dist) / u.GetPixelDist()) //convert from pixel to mm
 				if nextGoto.Category == u.Ball {
-					dist = int(float64(dist)/u.GetPixelDist()) - 275 // convert pixel distance to distance in millimeter
+					dist = dist - u.DistanceFromBall
 				}
 
 				log.Infof("Dist: %d, angle: %d, send angle: %d, next: %+v, current: %+v", dist, angle, angle-current.Angle, nextGoto, current)
 
 				commandChan <- fmt.Sprintf("%d/%d/255/200/0\n", nextGoto.Point.X, nextGoto.Point.Y)
 
-				if dist < 10 && nextGoto.Category == u.WayPoint {
+				if dist < 25 && nextGoto.Category == u.WayPoint {
 					setState(stateNextPos)
 					// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
-				} else if ((angle < current.Angle-3 || angle > current.Angle+3) && nextGoto.Category == u.Ball) || (angle < current.Angle-10 || angle > current.Angle+10) || ((angle < current.Angle-20 || angle > current.Angle+20) && u.Abs(dist) > 200) {
+				} else if (angle < current.Angle-15 || angle > current.Angle+15) && u.Abs(dist) > 200 {
 					success := sendToBot(conn, calcRotation(angle-current.Angle))
 					if !success {
 						break loop
 					}
+				} else if nextGoto.Category == u.Ball && (angle < current.Angle-3 || angle > current.Angle+3) {
+					success := sendToBot(conn, calcRotation(angle-current.Angle))
+					if !success {
+						break loop
+					}
+				} else if angle < current.Angle-10 || angle > current.Angle+10 {
+					success := sendToBot(conn, calcRotation(angle-current.Angle))
+					if !success {
+						break loop
+					}
+
 					// if the distance is far away, we send a course forward
-				} else if dist > 255 {
+				} else if dist > 200 {
 					dist = dist / 10
 					if dist > 255 {
 						dist = 255
@@ -267,7 +268,6 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					if nextGoto.Category == u.WayPoint {
 						setState(stateNextPos)
 					} else if nextGoto.Category == u.Ball {
-						log.Infoln(fmt.Sprintf("check/%d/%d", nextGoto.Point.X, nextGoto.Point.Y))
 						commandChan <- fmt.Sprintf("check/%d/%d", nextGoto.Point.X, nextGoto.Point.Y)
 						setState(stateWait)
 					} else if nextGoto.Category == u.Goal {
@@ -291,7 +291,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				setState(stateWait)
 
 			case stateDump:
-				success := sendToBot(conn, calcRotation(0-currentPos.Get().Angle))
+				success := sendToBot(conn, calcRotation(0-u.CurrentPos.Get().Angle))
 				if !success {
 					break loop
 				}

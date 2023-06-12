@@ -16,13 +16,9 @@ import (
 func main() {
 	// enable line numbers in log
 	log.EnableLineNumbers()
-	//tsp_test()
+
 	u.GetIp()
 	log.Info("Got IP: ", u.IP)
-
-	/*f.ManualTest()
-	return
-	*/
 
 	// this creates a channel and a routine for the key getter. Not used at the moment
 	keyChan := make(chan string)

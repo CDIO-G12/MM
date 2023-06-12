@@ -63,3 +63,9 @@ func Pop[K any](slice *[]K) K {
 	*slice = (*slice)[:f-1]
 	return rv
 }
+
+func Dequeue[K any](slice *[]K) K {
+	rv := (*slice)[0]
+	*slice = (*slice)[1:]
+	return rv
+}

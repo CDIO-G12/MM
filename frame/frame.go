@@ -144,12 +144,14 @@ func (f *FrameType) findClosestGuidePosition(position u.PointType) u.PointType {
 	return pos
 }
 
-func (f *FrameType) CreateMoves(currentPos u.PointType, nextPos u.PoiType) (directions []u.PoiType) {
+func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
+	currentPos := u.CurrentPos.Get()
 
 	if nextPos.Category == u.Goal {
-		directions = make([]u.PoiType, 2)
+		directions = make([]u.PoiType, 3)
 		directions[0] = u.PoiType{Point: u.PointType{X: nextPos.Point.X + int(u.MmToGoal*u.GetPixelDist())*2, Y: nextPos.Point.Y}, Category: u.WayPoint}
-		directions[1] = nextPos
+		directions[1] = u.PoiType{Point: u.PointType{X: nextPos.Point.X + int(u.MmToGoal*u.GetPixelDist()), Y: nextPos.Point.Y}, Category: u.WayPoint}
+		directions[2] = nextPos
 		return
 	}
 
@@ -178,7 +180,7 @@ func (f *FrameType) CreateMoves(currentPos u.PointType, nextPos u.PoiType) (dire
 const ratingEasy = 0
 const ratingHard = 1
 const ratingBorder = 2
-const ratingCorner = 3
+const ratingCorner = 2
 const hardDist = 75
 const borderDist = 25
 const cornerDist = 25

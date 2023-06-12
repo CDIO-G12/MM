@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -23,11 +22,10 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 	//go imageReciever()
 	balls := []u.PointType{}
 	sortedBalls := []u.PointType{}
-	currentPos := u.SafePointType{Point: u.PointType{X: 200, Y: 200, Angle: 180}}
 	orangeBall := u.PointType{X: 0, Y: 0}
 	goalPos := u.PointType{X: 48, Y: 355}
 	goalPos.X += int(u.MmToGoal * u.GetPixelDist())
-	nextBall := u.PointType{}
+	currentBall := u.PointType{}
 	//active := false
 	robotActive := false
 	robotWaiting := false
@@ -49,7 +47,8 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 
 			// recieve command from robot, and handle
 			cmd := <-commandChan
-			//fmt.Println("Recieved: ", cmd)
+			visLog.Info("Recieved: ", cmd)
+
 			switch cmd {
 			case "ready":
 				robotActive = true
@@ -59,30 +58,27 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 
 			case "next": // Send next ball
 				robotActive = true
-				if orangeBall == nextBall {
+				if orangeBall == currentBall {
 					orangeBall.X = 0
 					sendChan <- "no"
 				}
 
 				if orangeBall.X != 0 {
-					nextBall = orangeBall
+					currentBall = orangeBall
 					poiChan <- u.PoiType{Point: orangeBall, Category: u.Ball}
 					continue
 				}
 
 				ballBuffer := make([]u.PointType, len(sortedBalls))
 				copy(ballBuffer, sortedBalls)
-				sortedBalls, _ = currentPos.Get().SortBalls(ballBuffer)
+				sortedBalls, _ = u.CurrentPos.Get().SortBalls(ballBuffer)
 
 				if len(sortedBalls) == 0 {
 					poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
 				} else {
-					nextBall = sortedBalls[0]
-					poiChan <- u.PoiType{Point: nextBall, Category: u.Ball}
+					currentBall = sortedBalls[0]
+					poiChan <- u.PoiType{Point: currentBall, Category: u.Ball}
 				}
-
-			case "pos": // Send current position
-				poiChan <- u.PoiType{Point: currentPos.Get(), Category: u.Robot}
 
 			case "goal":
 				poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
@@ -93,8 +89,8 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					point := u.PointType{}
 					point.X, _ = strconv.Atoi(spl[1])
 					point.Y, _ = strconv.Atoi(spl[2])
-					fmt.Println(spl)
-					fmt.Println(point)
+					visLog.Info(spl)
+
 					if u.InArray(point, sortedBalls) || point.IsClose(orangeBall, 3) {
 						poiChan <- u.PoiType{Category: u.Found}
 					} else {
@@ -125,7 +121,6 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 			continue
 		}
 		log.Infoln("Connected to visuals at:", conn.RemoteAddr().String())
-		buffer := make([]byte, 65536)
 		ballBuffer := []u.PointType{}
 		//active = true
 
@@ -147,15 +142,14 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 		}()
 
 		stream := s.Init_streamer()
+		buffer := make([]byte, 65536)
 		for {
 			// Read blocks, so we wait for incoming command
 			rLen, err := conn.Read(buffer)
 			// if it fails, we break the loop
 			if log.Should(err) {
 				// Send an emergency in a new routine so it wont block
-				go func() {
-					poiChan <- u.PoiType{Category: u.Emergency} // Stop the bot if connection is lost
-				}()
+				poiChan <- u.PoiType{Category: u.Emergency} // Stop the bot if connection is lost
 				conn.Close()
 				break
 			}
@@ -164,6 +158,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				stream.Send_data(buffer[0:rLen])
 				continue
 			}
+
 			// Convert the recieved to string
 			recString := string(buffer[0:rLen])
 			outerSplit := strings.Split(recString, "\n")
@@ -207,22 +202,13 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 								if current.X < 2 || current.Y < 2 {
 									continue
 								}
-								/*if tempR < -90 {
-									currentPos.Angle = tempR + 270
-								} else {
-									currentPos.Angle = tempR - 90
-								}*/
 								current.Angle = u.DegreeAdd(tempR, -90)
 
-								if !currentPos.Get().IsClose(current, 5) {
+								if !u.CurrentPos.Get().IsClose(current, 5) {
 									visLog.Log("Updated currentpos: ", current)
 								}
-								currentPos.Set(current)
+								u.CurrentPos.Set(current)
 
-								framePoiChan <- u.PoiType{Point: current, Category: u.Robot}
-								if robotActive {
-									poiChan <- u.PoiType{Point: current, Category: u.Robot}
-								}
 							}
 						}
 					}
@@ -232,7 +218,8 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						ballBuffer = []u.PointType{}
 						//log.Info("Visuals: reset ball buffer")
 						continue
-					} else if split[1] == "d" { // list done
+					}
+					if split[1] == "d" { // list done
 						if !checkForNewBalls(balls, ballBuffer) {
 							continue
 						}
@@ -240,7 +227,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						copy(balls, ballBuffer)
 
 						var err error
-						sortedBalls, err = currentPos.Get().SortBalls(ballBuffer)
+						sortedBalls, err = u.CurrentPos.Get().SortBalls(ballBuffer)
 						if log.Should(err) {
 							continue
 						}
@@ -272,12 +259,13 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 
 						continue
 					}
+
 					ball := u.PointType{}
 					if tempX, err := strconv.Atoi(split[1]); err == nil {
 						if tempY, err := strconv.Atoi(split[2]); err == nil {
 							ball.X = tempX
 							ball.Y = tempY
-							current := currentPos.Get()
+							current := u.CurrentPos.Get()
 							ang, dis := current.Dist(ball)
 							if dis < 50 {
 								if u.Abs(ang-current.Angle) < 15 {
@@ -288,7 +276,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						}
 					}
 
-				case "c": // corner
+				case "c": // corner - c/i/x/y
 					if tempI, err := strconv.Atoi(split[1]); err == nil && tempI < 4 && len(split) > 3 {
 						if tempX, err := strconv.Atoi(split[2]); err == nil {
 							if tempY, err := strconv.Atoi(split[3]); err == nil {
@@ -311,7 +299,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					}
 
 				case "m": // middle x
-					if tempI, err := strconv.Atoi(split[1]); err == nil && len(split) > 3 {
+					if tempI, err := strconv.Atoi(split[1]); err == nil && tempI < 4 && len(split) > 3 {
 						if tempX, err := strconv.Atoi(split[2]); err == nil {
 							if tempY, err := strconv.Atoi(split[3]); err == nil {
 								poiChan <- u.PoiType{Category: u.MiddleXcorner, Point: u.PointType{X: tempX, Y: tempY, Angle: tempI}}
@@ -325,7 +313,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						u.SetPixelDist(s)
 					}
 
-				case "f": // found
+				case "f": // found - not used at the moment
 					if split[1] == "t" {
 						poiChan <- u.PoiType{Category: u.Found}
 					} else {
@@ -333,7 +321,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					}
 
 				case "g": // goal
-					continue
+					//continue
 					if tempX, err := strconv.Atoi(split[1]); err == nil {
 						if tempY, err := strconv.Atoi(split[2]); err == nil {
 							tempX += int(u.MmToGoal * u.GetPixelDist())
@@ -370,25 +358,4 @@ func checkForNewBalls(old, recevied []u.PointType) bool {
 	}
 
 	return false
-}
-
-// for getting and saving images - is not in use
-func imageReciever() {
-	udpServer, err := net.ListenPacket("udp", fmt.Sprintf(":%d", u.VisualPort-1))
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer udpServer.Close()
-
-	buf := make([]byte, 16384)
-	for {
-		_, _, err := udpServer.ReadFrom(buf)
-		if err != nil {
-			continue
-		}
-		err = os.WriteFile("UI/Front/img/thumbnail.jpg", buf, 0644)
-		if err != nil {
-			continue
-		}
-	}
 }
