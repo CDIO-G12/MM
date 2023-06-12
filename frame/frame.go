@@ -160,7 +160,16 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 	last := f.findClosestGuidePosition(nextPos.Point)
 	//directions = append(directions, u.PoiType{Point: first, Category: u.WayPoint})
 
-	//angle, dist := f.MiddleXPoint().Dist(currentPos)
+	/*
+		angleX, distX := f.MiddleXPoint().Dist(currentPos)
+		angleB, distB := nextPos.Point.Dist(currentPos)
+
+		if distB > distX {
+
+
+
+
+		}*/
 
 	/*TODO: Make middle positions
 
