@@ -99,13 +99,13 @@ func (f *FrameType) MiddleXPoint() u.PointType {
 }
 
 func (f *FrameType) findClosestGuidePosition(position u.PointType) u.PointType {
-	f.MU.Lock()
-	defer f.MU.Unlock()
+	f.MU.RLock()
 	up := u.Avg(f.guideCorners[0].Y, f.guideCorners[1].Y)
 	left := u.Avg(f.guideCorners[0].X, f.guideCorners[3].X)
 	down := u.Avg(f.guideCorners[2].Y, f.guideCorners[3].Y)
 	right := u.Avg(f.guideCorners[1].X, f.guideCorners[2].X)
 
+	f.MU.RUnlock()
 	bordersDist := []int{u.Abs(position.Y - up), u.Abs(position.X - left), u.Abs(position.Y - down), u.Abs(position.X - right)}
 	//borders := []int{up, left, down, right}
 	min := 99999
@@ -150,8 +150,8 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 
 	if nextPos.Category == u.Goal {
 		directions = make([]u.PoiType, 3)
-		directions[0] = u.PoiType{Point: u.PointType{X: nextPos.Point.X + int(u.MmToGoal*u.GetPixelDist())*2, Y: nextPos.Point.Y}, Category: u.WayPoint}
-		directions[1] = u.PoiType{Point: u.PointType{X: nextPos.Point.X + int(u.MmToGoal*u.GetPixelDist()), Y: nextPos.Point.Y}, Category: u.WayPoint}
+		directions[0] = u.PoiType{Point: u.PointType{X: nextPos.Point.X + int(u.MmToGoal*u.GetPixelDist()), Y: nextPos.Point.Y}, Category: u.WayPoint}
+		directions[1] = u.PoiType{Point: u.PointType{X: nextPos.Point.X + int(u.MmToGoal*u.GetPixelDist())/2, Y: nextPos.Point.Y}, Category: u.WayPoint}
 		directions[2] = nextPos
 		return
 	}
@@ -161,13 +161,13 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 	last := f.findClosestGuidePosition(nextPos.Point)
 	//directions = append(directions, u.PoiType{Point: first, Category: u.WayPoint})
 
-	directions = append(directions, f.CalculateWaypoint(nextPos)...)
+	//directions = append(directions, f.CalculateWaypoint(nextPos)...)
 	/*TODO: Make middle positions
 
 	Check if middle x is in the way, and add more points
 	*/
 
-	directions = append(directions, u.PoiType{Point: last, Category: u.WayPoint})
+	//directions = append(directions, u.PoiType{Point: last, Category: u.WayPoint})
 	directions = append(directions, nextPos)
 
 	f.createTestImg([]u.PoiType{{Point: currentPos}, {Point: first}, {Point: last}, nextPos}, "Directions")
@@ -181,33 +181,59 @@ func (f *FrameType) CalculateWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType)
 
 	currentPos := u.CurrentPos.Get()
 
-	angleX, distX := currentPos.Dist(f.MiddleXPoint())
+	middleXPoint := f.MiddleXPoint()
+
+	angleX, distX := currentPos.Dist(middleXPoint)
 	angleB, distB := currentPos.Dist(nextPos.Point)
-	yB := nextPos.Point.Y
 
 	safeDist := float64(100)
 
+	fmt.Println(distX, distB, angleX, angleB)
 	//Check if the next ball is on the other side of the middle x
-	if distX < distB {
-
-		//Check if the ball is clear of the middle x
-		if ((angleX + 10) < angleB) && ((angleX - 10) > angleB) {
-			return
-		}
-
-		if yB > f.MiddleXPoint().Y {
-			x := f.MiddleXPoint().X + int(safeDist*math.Cos(float64(angleB)))
-			y := f.MiddleXPoint().Y + int(safeDist*math.Sin(float64(angleB)))
-
-			WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: x, Y: y}, Category: u.WayPoint})
-		} else {
-			x := f.MiddleXPoint().X - int(safeDist*math.Cos(float64(angleB)))
-			y := f.MiddleXPoint().Y - int(safeDist*math.Sin(float64(angleB)))
-
-			WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: x, Y: y}, Category: u.WayPoint})
-
-		}
+	if distX > distB {
+		return
 	}
+
+	//Check if the ball is clear of the middle x
+	if ((angleX + 10) < angleB) && ((angleX - 10) > angleB) {
+		return
+	}
+
+	under := 1
+	if nextPos.Point.Y < middleXPoint.Y {
+		under = -1
+	}
+
+	x := middleXPoint.X + int(safeDist*math.Cos(float64(angleX)))*under
+	y := middleXPoint.Y + int(safeDist*math.Sin(float64(angleX)))*under
+
+	WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: x, Y: y}, Category: u.WayPoint})
+	fmt.Println("Added waypoint - ", WayPoints)
+
+	return
+}
+
+func (f *FrameType) calcWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType) {
+
+	currentPos := u.CurrentPos.Get()
+
+	middleXPoint := f.MiddleXPoint()
+
+	angleX, distX := currentPos.Dist(middleXPoint)
+	angleB, distB := currentPos.Dist(nextPos.Point)
+
+	fmt.Println(distX, distB, angleX, angleB)
+
+	if distB < distX {
+		return
+	}
+
+	if ((angleX + 10) < angleB) && ((angleX - 10) > angleB) {
+		return
+	}
+
+	WayPoints = append(WayPoints, u.PoiType{Point: f.findClosestGuidePosition(currentPos), Category: u.WayPoint})
+	WayPoints = append(WayPoints, u.PoiType{Point: f.findClosestGuidePosition(nextPos.Point), Category: u.WayPoint})
 
 	return
 }

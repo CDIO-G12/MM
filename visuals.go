@@ -56,6 +56,12 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 			case "gone", "pause":
 				robotActive = false
 
+			case "nextIf":
+				if len(sortedBalls) == 0 && orangeBall.X == 0 {
+					continue
+				}
+				fallthrough
+
 			case "next": // Send next ball
 				robotActive = true
 				if orangeBall == currentBall {
@@ -291,7 +297,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 										for i, v := range guide {
 											send += fmt.Sprintf("gc/%d/%d/%d\n", i, v.X, v.Y)
 										}
-										//sendChan <- send
+										sendChan <- send
 									}
 								}
 							}
@@ -302,7 +308,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					if tempI, err := strconv.Atoi(split[1]); err == nil && tempI < 4 && len(split) > 3 {
 						if tempX, err := strconv.Atoi(split[2]); err == nil {
 							if tempY, err := strconv.Atoi(split[3]); err == nil {
-								poiChan <- u.PoiType{Category: u.MiddleXcorner, Point: u.PointType{X: tempX, Y: tempY, Angle: tempI}}
+								framePoiChan <- u.PoiType{Category: u.MiddleXcorner, Point: u.PointType{X: tempX, Y: tempY, Angle: tempI}}
 							}
 						}
 					}

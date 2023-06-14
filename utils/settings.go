@@ -9,8 +9,8 @@ const TrackingDistance = 185
 const DistanceFromBall = 285
 
 const VisualPort = 8888
-const GuideCornerOffset = 280 //in mm
+const GuideCornerOffset = 300 //in mm
 const VisualDebugLog = false
-const MmToGoal = 210
+const MmToGoal = 220
 
 const keyGetterPort = 10023

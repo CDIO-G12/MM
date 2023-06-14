@@ -124,7 +124,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				}
 				// We convert from []byte to string
 				recieved := string(buffer[0:len])
-				log.Infoln("Got from robot: ", recieved)
+				robLog.Info("Got from robot: ", recieved)
 
 				// Check what kind of command is recieved, and handle them
 				switch {
@@ -153,7 +153,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 
 				case strings.Contains(recieved, "fm"): // finished move - is sent when the robot has done a move, and is waiting for next instruction
 					// Every time we are done with a move, we ask for the current position, and runs the next move
-					time.Sleep(350 * time.Millisecond)
+					time.Sleep(200 * time.Millisecond)
 					setState(stateNextMove)
 
 				case strings.Contains(recieved, "fd"): // finish dump
@@ -184,6 +184,9 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				time.Sleep(100 * time.Millisecond)
 
 			case stateNextPosQueue: // Create new array of moves
+				if nextPos.Category == u.Ball {
+					frame.RateBall(&nextPos.Point)
+				}
 				positionQueue = frame.CreateMoves(nextPos)
 				log.Info("Got position queue", positionQueue)
 				send := ""
@@ -211,32 +214,45 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					setState(stateNextPos)
 					continue
 				}
-				current := u.CurrentPos.Get()
-				angle, dist := current.Dist(nextGoto.Point)
+				// check if new ball have appeared
+				if nextPos.Category == u.Goal && ballCounter < u.BallCounterMax {
+					commandChan <- "nextIf"
+				}
+
+				currentPos := u.CurrentPos.Get()
+				angle, dist := currentPos.Dist(nextGoto.Point)
 				dist = int(float64(dist) / u.GetPixelDist()) //convert from pixel to mm
 				if nextGoto.Category == u.Ball {
 					dist = dist - u.DistanceFromBall
 				}
 
-				log.Infof("Dist: %d, angle: %d, send angle: %d, next: %+v, current: %+v", dist, angle, angle-current.Angle, nextGoto, current)
+				log.Infof("Dist: %d, angle: %d, send angle: %d, next: %+v, current: %+v", dist, angle, angle-currentPos.Angle, nextGoto, currentPos)
 
 				commandChan <- fmt.Sprintf("%d/%d/255/200/0\n", nextGoto.Point.X, nextGoto.Point.Y)
 
-				if dist < 25 && nextGoto.Category == u.WayPoint {
+				if dist < 50 && nextGoto.Category == u.WayPoint {
 					setState(stateNextPos)
+					continue
 					// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
-				} else if (angle < current.Angle-15 || angle > current.Angle+15) && u.Abs(dist) > 200 {
-					success := sendToBot(conn, calcRotation(angle-current.Angle))
+				}
+				if (angle < currentPos.Angle-195 || angle > currentPos.Angle+195) && dist < 100 {
+					success := sendToBot(conn, []byte{[]byte("B")[0], byte(dist + 10)})
 					if !success {
 						break loop
 					}
-				} else if nextGoto.Category == u.Ball && (angle < current.Angle-3 || angle > current.Angle+3) {
-					success := sendToBot(conn, calcRotation(angle-current.Angle))
+
+				} else if (angle < currentPos.Angle-15 || angle > currentPos.Angle+15) && u.Abs(dist) > 200 {
+					success := sendToBot(conn, calcRotation(angle-currentPos.Angle))
 					if !success {
 						break loop
 					}
-				} else if angle < current.Angle-10 || angle > current.Angle+10 {
-					success := sendToBot(conn, calcRotation(angle-current.Angle))
+				} else if nextGoto.Category == u.Ball && (angle < currentPos.Angle-3 || angle > currentPos.Angle+3) {
+					success := sendToBot(conn, calcRotation(angle-currentPos.Angle))
+					if !success {
+						break loop
+					}
+				} else if angle < currentPos.Angle-10 || angle > currentPos.Angle+10 {
+					success := sendToBot(conn, calcRotation(angle-currentPos.Angle))
 					if !success {
 						break loop
 					}
@@ -282,7 +298,6 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				setState(stateMoving)
 
 			case statePickup:
-				frame.RateBall(&nextGoto.Point)
 				commandChan <- "pause"
 				success := sendToBot(conn, []byte{[]byte("T")[0], byte(nextGoto.Point.Angle)})
 				if !success {
