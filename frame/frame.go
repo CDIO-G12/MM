@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math"
 	"os"
 	"sync"
 
@@ -182,22 +183,30 @@ func (f *FrameType) CalculateWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType)
 
 	angleX, distX := currentPos.Dist(f.MiddleXPoint())
 	angleB, distB := currentPos.Dist(nextPos.Point)
+	yB := nextPos.Point.Y
 
-	safeDist := float64(25)
+	safeDist := float64(100)
 
 	//Check if the next ball is on the other side of the middle x
 	if distX < distB {
 
 		//Check if the ball is clear of the middle x
-		if ((angleX + 10) < angleB) || ((angleX - 10) > angleB) {
+		if ((angleX + 10) < angleB) && ((angleX - 10) > angleB) {
 			return
 		}
 
-		x := f.MiddleXPoint().X + int(safeDist)
-		y := f.MiddleXPoint().Y + int(safeDist)
+		if yB > f.MiddleXPoint().Y {
+			x := f.MiddleXPoint().X + int(safeDist*math.Cos(float64(angleB)))
+			y := f.MiddleXPoint().Y + int(safeDist*math.Sin(float64(angleB)))
 
-		WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: x, Y: y}, Category: u.WayPoint})
+			WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: x, Y: y}, Category: u.WayPoint})
+		} else {
+			x := f.MiddleXPoint().X - int(safeDist*math.Cos(float64(angleB)))
+			y := f.MiddleXPoint().Y - int(safeDist*math.Sin(float64(angleB)))
 
+			WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: x, Y: y}, Category: u.WayPoint})
+
+		}
 	}
 
 	return
