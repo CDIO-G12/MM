@@ -248,21 +248,18 @@ func (f *FrameType) createWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType) {
 		return
 	}
 
-	offset := 2
+	offset := int(-0.00005*math.Pow(float64(distX), 2) + 10)
+	//offset := int(15.7 * math.Exp(-0.0004*float64(distX)))
 
 	if u.DegreeSub(angleB, angles[p1])+u.DegreeSub(angleB, angles[p2])+offset > max_diff {
+
+		WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: 200, Y: 200, Angle: offset}, Category: u.WayPoint})
+
 		return
 	}
 
 	WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: 200, Y: 200, Angle: max_diff}, Category: u.WayPoint})
 
-	/*
-		WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: currentPos.X, Y: currentPos.Y, Angle: angels[0]}, Category: u.WayPoint})
-		WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: currentPos.X, Y: currentPos.Y, Angle: angels[1]}, Category: u.WayPoint})
-		WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: currentPos.X, Y: currentPos.Y, Angle: angels[2]}, Category: u.WayPoint})
-		WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: currentPos.X, Y: currentPos.Y, Angle: angels[3]}, Category: u.WayPoint})
-
-	*/
 	return
 
 }
