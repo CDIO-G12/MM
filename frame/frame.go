@@ -7,7 +7,9 @@ import (
 	"image/color"
 	"image/png"
 	"math"
+	"math/rand"
 	"os"
+	"sort"
 	"sync"
 
 	log "github.com/s00500/env_logger"
@@ -161,7 +163,7 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 	last := f.findClosestGuidePosition(nextPos.Point)
 	//directions = append(directions, u.PoiType{Point: first, Category: u.WayPoint})
 
-	directions = append(directions, f.CalculateWaypoint(nextPos)...)
+	directions = append(directions, f.createWaypoint(nextPos)...)
 	/*TODO: Make middle positions
 
 	Check if middle x is in the way, and add more points
@@ -170,7 +172,7 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 	directions = append(directions, u.PoiType{Point: last, Category: u.WayPoint})
 	directions = append(directions, nextPos)
 
-	f.createTestImg([]u.PoiType{{Point: currentPos}, {Point: first}, {Point: last}, nextPos}, "Directions")
+	f.createTestImg([]u.PoiType{{Point: currentPos}, {Point: first}, {Point: last}, nextPos}, "Directions", f.MiddleX[:], currentPos)
 
 	//directions = append(directions, nextPos)
 
@@ -207,6 +209,75 @@ func (f *FrameType) CalculateWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType)
 			WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: x, Y: y}, Category: u.WayPoint})
 
 		}
+	}
+
+	return
+}
+
+func (f *FrameType) createWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType) {
+
+	currentPos := u.CurrentPos.Get()
+
+	//safeAngle := 5
+	angles := f.findThreeClosestXCorners(currentPos)
+
+	sort.Ints(angles)
+
+	_, distX := currentPos.Dist(f.MiddleXPoint())
+	angleB, distB := currentPos.Dist(nextPos.Point)
+
+	max_diff := angles[1] - angles[0]
+	p1, p2 := 0, 0
+
+	for i := 0; i < len(angles); i++ {
+		for j := 0; j < len(angles); j++ {
+			if i == j {
+				continue
+			}
+			diff := u.DegreeSub(angles[j], angles[i])
+
+			if diff > max_diff {
+				max_diff = diff
+				p1 = i
+				p2 = j
+			}
+		}
+	}
+
+	if distB < distX {
+		return
+	}
+
+	offset := 2
+
+	if u.DegreeSub(angleB, angles[p1])+u.DegreeSub(angleB, angles[p2])+offset > max_diff {
+		return
+	}
+
+	WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: 200, Y: 200, Angle: max_diff}, Category: u.WayPoint})
+
+	/*
+		WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: currentPos.X, Y: currentPos.Y, Angle: angels[0]}, Category: u.WayPoint})
+		WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: currentPos.X, Y: currentPos.Y, Angle: angels[1]}, Category: u.WayPoint})
+		WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: currentPos.X, Y: currentPos.Y, Angle: angels[2]}, Category: u.WayPoint})
+		WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: currentPos.X, Y: currentPos.Y, Angle: angels[3]}, Category: u.WayPoint})
+
+	*/
+	return
+
+}
+
+func (f *FrameType) findThreeClosestXCorners(pos u.PointType) (returnAngle []int) {
+
+	currentPos := pos
+
+	xPoint := f.MiddleX[:4]
+
+	var angle int
+
+	for _, point := range xPoint {
+		angle, _ = currentPos.Dist(point)
+		returnAngle = append(returnAngle, angle)
 	}
 
 	return
@@ -283,32 +354,41 @@ func ManualTest() {
 	frame.createTestImg(moves, "t1")*/
 }
 
-func (f *FrameType) createTestImg(points []u.PoiType, name string) {
-	width := 700
-	height := 400
+func (f *FrameType) createTestImg(points []u.PoiType, name string, middle []u.PointType, currentPos u.PointType) {
+	width := 980
+	height := 720
 
 	upLeft := image.Point{0, 0}
 	lowRight := image.Point{width, height}
 
-	colors := []color.RGBA{{255, 0, 0, 0xff}, {0, 255, 0, 0xff}, {0, 0, 255, 0xff}, {255, 0, 255, 0xff}, {100, 200, 200, 0xff}, {100, 200, 200, 0xff}}
+	//colors := []color.RGBA{{255, 0, 0, 0xff}, {0, 255, 0, 0xff}, {0, 0, 255, 0xff}, {255, 0, 255, 0xff}, {100, 200, 200, 0xff}, {100, 200, 200, 0xff}}
 	img := image.NewRGBA(image.Rectangle{upLeft, lowRight})
 
-	for i := f.guideCorners[0].X; i <= f.guideCorners[1].X; i++ {
-		img.Set(i, f.guideCorners[0].Y, color.RGBA{200, 200, 200, 0x7F})
-		img.Set(i, f.guideCorners[2].Y, color.RGBA{200, 200, 200, 0x7F})
+	/*
+		for i := f.guideCorners[0].X; i <= f.guideCorners[1].X; i++ {
+			img.Set(i, f.guideCorners[0].Y, color.RGBA{200, 200, 200, 0x7F})
+			img.Set(i, f.guideCorners[2].Y, color.RGBA{200, 200, 200, 0x7F})
+		}
+
+		for i := f.guideCorners[0].Y; i <= f.guideCorners[3].Y; i++ {
+			img.Set(f.guideCorners[0].X, i, color.RGBA{200, 200, 200, 0x7F})
+			img.Set(f.guideCorners[1].X, i, color.RGBA{200, 200, 200, 0x7F})
+		}
+	*/
+
+	for _, p := range middle {
+		f.drawCircle(img, p, 5)
 	}
 
-	for i := f.guideCorners[0].Y; i <= f.guideCorners[3].Y; i++ {
-		img.Set(f.guideCorners[0].X, i, color.RGBA{200, 200, 200, 0x7F})
-		img.Set(f.guideCorners[1].X, i, color.RGBA{200, 200, 200, 0x7F})
+	img.Set(currentPos.X, currentPos.Y, color.RGBA{255, 255, 255, 0xff})
+
+	for _, p := range points {
+		if p.Category == u.Ball {
+			f.drawCircle(img, p.Point, 5)
+		}
 	}
 
-	for i, p := range points {
-		img.Set(p.Point.X, p.Point.Y, colors[i])
-		img.Set(p.Point.X+1, p.Point.Y, colors[i])
-		img.Set(p.Point.X+1, p.Point.Y+1, colors[i])
-		img.Set(p.Point.X, p.Point.Y+1, colors[i])
-	}
+	f.drawCircle(img, currentPos, 5)
 
 	// Encode as PNG.
 	file, err := os.Create(fmt.Sprint(name, ".png"))
@@ -320,6 +400,22 @@ func (f *FrameType) createTestImg(points []u.PoiType, name string) {
 		log.Fatal(err)
 	}
 	file.Close()
+}
+
+func (f *FrameType) drawCircle(img *image.RGBA, center u.PointType, radius int) {
+	min := 0
+	max := 255
+
+	rand1 := uint8(rand.Intn(max-min+1) + min)
+	rand2 := uint8(rand.Intn(max-min+1) + min)
+	rand3 := uint8(rand.Intn(max-min+1) + min)
+
+	for i := center.X - radius; i <= center.X+radius; i++ {
+		for j := center.Y - radius; j <= center.Y+radius; j++ {
+			img.Set(i, j, color.RGBA{rand1, rand2, rand3, 0xff})
+		}
+	}
+
 }
 
 func (f *FrameType) GetGuideFrame() [4]u.PointType {
