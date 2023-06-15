@@ -7,7 +7,6 @@ import (
 	"image/color"
 	"image/png"
 	"math"
-	"math/rand"
 	"os"
 	"sort"
 	"sync"
@@ -67,7 +66,8 @@ func (f *FrameType) updateGuideCorners(cornerNr int) {
 	f.MU.Lock()
 	defer f.MU.Unlock()
 
-	offset := int(u.GuideCornerOffset / u.GetPixelDist())
+	//offset := int(u.GuideCornerOffset / u.GetPixelDist())
+	offset := 100
 
 	f.guideCorners[cornerNr] = f.Corners[cornerNr]
 
@@ -245,20 +245,27 @@ func (f *FrameType) createWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType) {
 	}
 
 	if distB < distX {
+
+		fmt.Println("Closer to ball than middle x")
 		return
+
 	}
 
 	offset := int(-0.00005*math.Pow(float64(distX), 2) + 10)
 	//offset := int(15.7 * math.Exp(-0.0004*float64(distX)))
 
-	if u.DegreeSub(angleB, angles[p1])+u.DegreeSub(angleB, angles[p2])+offset > max_diff {
+	if u.DegreeSub(angleB, angles[p1])+u.DegreeSub(angleB, angles[p2]) > max_diff+offset {
 
-		WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: 200, Y: 200, Angle: offset}, Category: u.WayPoint})
-
+		fmt.Println("Not behind cross")
 		return
+
 	}
 
-	WayPoints = append(WayPoints, u.PoiType{Point: u.PointType{X: 200, Y: 200, Angle: max_diff}, Category: u.WayPoint})
+	fmt.Println("offset: ", offset, "max_diff: ", max_diff, "tot: ", max_diff+offset)
+	fmt.Println("Ball angle: ", u.DegreeSub(angleB, angles[p1])+u.DegreeSub(angleB, angles[p2]))
+
+	WayPoints = append(WayPoints, u.PoiType{Point: f.findClosestGuidePosition(currentPos), Category: u.NA})
+	WayPoints = append(WayPoints, u.PoiType{Point: f.findClosestGuidePosition(nextPos.Point), Category: u.NA})
 
 	return
 
@@ -361,55 +368,48 @@ func (f *FrameType) createTestImg(points []u.PoiType, name string, middle []u.Po
 	//colors := []color.RGBA{{255, 0, 0, 0xff}, {0, 255, 0, 0xff}, {0, 0, 255, 0xff}, {255, 0, 255, 0xff}, {100, 200, 200, 0xff}, {100, 200, 200, 0xff}}
 	img := image.NewRGBA(image.Rectangle{upLeft, lowRight})
 
-	/*
-		for i := f.guideCorners[0].X; i <= f.guideCorners[1].X; i++ {
-			img.Set(i, f.guideCorners[0].Y, color.RGBA{200, 200, 200, 0x7F})
-			img.Set(i, f.guideCorners[2].Y, color.RGBA{200, 200, 200, 0x7F})
-		}
-
-		for i := f.guideCorners[0].Y; i <= f.guideCorners[3].Y; i++ {
-			img.Set(f.guideCorners[0].X, i, color.RGBA{200, 200, 200, 0x7F})
-			img.Set(f.guideCorners[1].X, i, color.RGBA{200, 200, 200, 0x7F})
-		}
-	*/
-
-	for _, p := range middle {
-		f.drawCircle(img, p, 5)
+	for i := f.guideCorners[0].X; i <= f.guideCorners[1].X; i++ {
+		img.Set(i, f.guideCorners[0].Y, color.RGBA{200, 200, 200, 0x7F})
+		img.Set(i, f.guideCorners[2].Y, color.RGBA{200, 200, 200, 0x7F})
 	}
 
-	img.Set(currentPos.X, currentPos.Y, color.RGBA{255, 255, 255, 0xff})
+	for i := f.guideCorners[0].Y; i <= f.guideCorners[3].Y; i++ {
+		img.Set(f.guideCorners[0].X, i, color.RGBA{200, 200, 200, 0x7F})
+		img.Set(f.guideCorners[1].X, i, color.RGBA{200, 200, 200, 0x7F})
+	}
+
+	for _, p := range middle {
+		f.drawCircle(img, p, 5, color.RGBA{255, 0, 0, 0xff})
+	}
+
+	f.drawCircle(img, currentPos, 10, color.RGBA{255, 255, 255, 0xff})
 
 	for _, p := range points {
 		if p.Category == u.Ball {
-			f.drawCircle(img, p.Point, 5)
+			f.drawCircle(img, p.Point, 5, color.RGBA{255, 0, 255, 0xff})
 		}
-	}
+		if p.Category == u.NA {
+			f.drawCircle(img, p.Point, 3, color.RGBA{26, 117, 123, 0xff})
+		}
 
-	f.drawCircle(img, currentPos, 5)
-
-	// Encode as PNG.
-	file, err := os.Create(fmt.Sprint(name, ".png"))
-	if err != nil {
-		log.Fatal(err)
+		// Encode as PNG.
+		file, err := os.Create(fmt.Sprint(name, ".png"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = png.Encode(file, img)
+		if err != nil {
+			log.Fatal(err)
+		}
+		file.Close()
 	}
-	err = png.Encode(file, img)
-	if err != nil {
-		log.Fatal(err)
-	}
-	file.Close()
 }
 
-func (f *FrameType) drawCircle(img *image.RGBA, center u.PointType, radius int) {
-	min := 0
-	max := 255
-
-	rand1 := uint8(rand.Intn(max-min+1) + min)
-	rand2 := uint8(rand.Intn(max-min+1) + min)
-	rand3 := uint8(rand.Intn(max-min+1) + min)
+func (f *FrameType) drawCircle(img *image.RGBA, center u.PointType, radius int, color color.RGBA) {
 
 	for i := center.X - radius; i <= center.X+radius; i++ {
 		for j := center.Y - radius; j <= center.Y+radius; j++ {
-			img.Set(i, j, color.RGBA{rand1, rand2, rand3, 0xff})
+			img.Set(i, j, color)
 		}
 	}
 

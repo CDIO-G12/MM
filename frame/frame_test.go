@@ -23,7 +23,7 @@ func setupFrame() *FrameType {
 	poiChan <- u.PoiType{Point: u.PointType{X: (980 / 2), Y: (720/2 + middleXSize), Angle: 2}, Category: u.MiddleXcorner}
 	poiChan <- u.PoiType{Point: u.PointType{X: (980 / 2), Y: (720/2 - middleXSize), Angle: 3}, Category: u.MiddleXcorner}
 
-	u.CurrentPos.Set(u.PointType{X: 800, Y: 360, Angle: 0})
+	u.CurrentPos.Set(u.PointType{X: 800, Y: 700, Angle: 0})
 
 	time.Sleep(time.Millisecond)
 
