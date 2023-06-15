@@ -59,7 +59,7 @@ func NewFrame(poiChan <-chan u.PoiType) *FrameType {
 }
 
 func (f *FrameType) updateGuideCorners(cornerNr int) {
-	if cornerNr >= len(f.Corners) {
+	if cornerNr >= len(f.MiddleX) {
 		return
 	}
 	f.MU.Lock()
@@ -67,21 +67,17 @@ func (f *FrameType) updateGuideCorners(cornerNr int) {
 
 	offset := int(u.GuideCornerOffset / u.GetPixelDist())
 
-	f.guideCorners[cornerNr] = f.Corners[cornerNr]
+	f.guideCorners[cornerNr] = f.MiddleX[cornerNr]
 
 	switch cornerNr {
-	case 0:
-		f.guideCorners[0].X += offset
-		f.guideCorners[0].Y += offset
-	case 1:
-		f.guideCorners[1].X -= offset
-		f.guideCorners[1].Y += offset
-	case 2:
-		f.guideCorners[2].X -= offset
-		f.guideCorners[2].Y -= offset
-	case 3:
-		f.guideCorners[3].X += offset
-		f.guideCorners[3].Y -= offset
+	case 0: // left
+		f.MiddleX[0].X -= offset
+	case 1: // right
+		f.MiddleX[1].X += offset
+	case 2: // top
+		f.MiddleX[2].Y -= offset
+	case 3: // bottom
+		f.MiddleX[3].Y += offset
 	}
 }
 
