@@ -149,26 +149,69 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 	currentPos := u.CurrentPos.Get()
 
 	if nextPos.Category == u.Goal {
+		if currentPos.IsClose(nextPos.Point, 5) {
+			directions = append(directions, nextPos)
+			return
+		}
+
 		directions = make([]u.PoiType, 3)
-		directions[0] = u.PoiType{Point: u.PointType{X: nextPos.Point.X + int(u.MmToGoal*u.GetPixelDist()), Y: nextPos.Point.Y}, Category: u.WayPoint}
+		directions[2] = u.PoiType{Point: u.PointType{X: nextPos.Point.X + int(u.MmToGoal*u.GetPixelDist()), Y: nextPos.Point.Y}, Category: u.WayPoint}
 		directions[1] = u.PoiType{Point: u.PointType{X: nextPos.Point.X + int(u.MmToGoal*u.GetPixelDist())/2, Y: nextPos.Point.Y}, Category: u.WayPoint}
-		directions[2] = nextPos
+		directions[0] = nextPos
 		return
 	}
 
-	//fmt.Println("Create moves:", currentPos, nextPos)
+	directions = append(directions, nextPos)
+
+	if nextPos.Category == u.Ball {
+
+		if nextPos.Point.Angle >= u.RatingCorner {
+			corner := nextPos.Point.Angle - u.RatingCorner
+			point := nextPos.Point
+			offset := int(u.DistanceFromBallCorner * u.GetPixelDist())
+			fmt.Println("Corner ", corner, point, offset)
+			switch corner {
+			case 0: //UpLeft
+				point.X += offset
+				point.Y += offset
+			case 1: //UpRight
+				point.X -= offset
+				point.Y += offset
+			case 2: //DownRight
+				point.X -= offset
+				point.Y -= offset
+			case 3: //DownLeft
+				point.X += offset
+				point.Y -= offset
+			}
+			directions = append(directions, u.PoiType{Point: point, Category: u.PreciseWayPoint})
+		} else if nextPos.Point.Angle >= u.RatingBorder {
+			border := nextPos.Point.Angle - u.RatingBorder
+			point := nextPos.Point
+			offset := int(u.DistanceFromBall * u.GetPixelDist())
+			fmt.Println("Border ", border, point, offset)
+			switch border {
+			case 0: //Up
+				point.Y += offset + 10
+			case 1: //Left
+				point.X += offset + 10
+			case 2: //Down
+				point.Y -= offset + 10
+			case 3: //Right
+				point.X -= offset + 10
+			}
+			directions = append(directions, u.PoiType{Point: point, Category: u.PreciseWayPoint})
+		}
+	}
+
 	first := f.findClosestGuidePosition(currentPos)
 	last := f.findClosestGuidePosition(nextPos.Point)
-	//directions = append(directions, u.PoiType{Point: first, Category: u.WayPoint})
 
-	//directions = append(directions, f.CalculateWaypoint(nextPos)...)
+	directions = append(directions, f.CalculateWaypoint(nextPos)...)
 	/*TODO: Make middle positions
 
 	Check if middle x is in the way, and add more points
 	*/
-
-	//directions = append(directions, u.PoiType{Point: last, Category: u.WayPoint})
-	directions = append(directions, nextPos)
 
 	f.createTestImg([]u.PoiType{{Point: currentPos}, {Point: first}, {Point: last}, nextPos}, "Directions")
 
@@ -238,10 +281,34 @@ func (f *FrameType) calcWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType) {
 	return
 }
 
-const ratingEasy = 0
-const ratingHard = 1
-const ratingBorder = 2
-const ratingCorner = 2
+func (f *FrameType) FindThreeClosestXPoints() (points []u.PointType) {
+
+	currentPos := u.CurrentPos.Get()
+
+	points = make([]u.PointType, 3)
+
+	// Find three closest points of the middle x
+	for i, point := range f.MiddleX {
+		if i == 0 {
+			points[i] = point
+			continue
+		}
+
+		_, dist := currentPos.Dist(point)
+		_, dist2 := currentPos.Dist(points[i-1])
+
+		if dist < dist2 {
+			points[i] = point
+		} else {
+			points[i] = points[i-1]
+			points[i-1] = point
+		}
+	}
+
+	return points
+
+}
+
 const hardDist = 75
 const borderDist = 25
 const cornerDist = 25
@@ -251,18 +318,16 @@ func (f *FrameType) RateBall(ball *u.PointType) {
 	defer f.MU.RUnlock()
 	pd := u.GetPixelDist()
 
-	for _, corner := range f.MiddleX {
-		_, dist := corner.Dist(*ball)
-		if dist < int(cornerDist*pd) {
-			ball.Angle = ratingCorner
-			return
-		}
+	_, dist := f.MiddleXPoint().Dist(*ball)
+	if dist < int(cornerDist*pd) {
+		ball.Angle = u.RatingCorner + 5
+		return
 	}
 
-	for _, corner := range f.Corners {
+	for i, corner := range f.Corners {
 		_, dist := corner.Dist(*ball)
 		if dist < cornerDist {
-			ball.Angle = ratingCorner
+			ball.Angle = u.RatingCorner + i
 			return
 		}
 	}
@@ -274,16 +339,18 @@ func (f *FrameType) RateBall(ball *u.PointType) {
 
 	bordersDist := []int{u.Abs(ball.Y - up), u.Abs(ball.X - left), u.Abs(ball.Y - down), u.Abs(ball.X - right)}
 	min := 999999
-	for _, border := range bordersDist {
+	minI := 5
+	for i, border := range bordersDist {
 		if border < min {
+			minI = i
 			min = border
 		}
 	}
 
 	if min < borderDist {
-		ball.Angle = ratingBorder
+		ball.Angle = u.RatingBorder + minI
 	} else if min < hardDist {
-		ball.Angle = ratingHard
+		ball.Angle = u.RatingHard
 	}
 
 	return
@@ -349,7 +416,7 @@ func (f *FrameType) createTestImg(points []u.PoiType, name string) {
 }
 
 func (f *FrameType) GetGuideFrame() [4]u.PointType {
-	f.MU.Lock()
-	defer f.MU.Unlock()
+	f.MU.RLock()
+	defer f.MU.RUnlock()
 	return f.guideCorners
 }
