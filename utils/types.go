@@ -14,10 +14,12 @@ const (
 	Corner
 	MiddleXcorner
 	WayPoint
+	PreciseWayPoint
 	Emergency
 	Start
 	Found
 	NotFound
+	Calibrate
 )
 
 func (s CategoryType) String() string {
@@ -32,6 +34,8 @@ func (s CategoryType) String() string {
 		return "corner"
 	case MiddleXcorner:
 		return "middle x corner"
+	case PreciseWayPoint:
+		return "precise waypoint"
 	case WayPoint:
 		return "waypoint"
 	case Emergency:

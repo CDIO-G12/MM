@@ -5,11 +5,14 @@ import (
 	f "MM/frame"
 	u "MM/utils"
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
 	log "github.com/s00500/env_logger"
 )
+
+var Timer u.TimerType
 
 //CLICOLOR_FORCE=1 go run .
 
@@ -19,6 +22,8 @@ func main() {
 
 	u.GetIp()
 	log.Info("Got IP: ", u.IP)
+
+	Timer = u.NewTimer()
 
 	// this creates a channel and a routine for the key getter. Not used at the moment
 	keyChan := make(chan string)
@@ -32,13 +37,22 @@ func main() {
 	go initVisualServer(frame, poiChan, framePoiChan, commandChan)
 	go initRobotServer(frame, keyChan, poiChan, commandChan)
 
-	// to test with no robot
-	//robotFaker()
-
-	// loop main, can enable prints of routines to watch out for too many go routines
+	// loop main
+	buf := ""
 	for {
-		time.Sleep(2 * time.Second)
-		//log.Info("goroutine: ", runtime.NumGoroutine())
+		fmt.Scanln(&buf)
+		switch buf {
+		case "time":
+			log.Infoln("Time: ", Timer.Now())
+			continue
+		case "left":
+			log.Infoln("Time left: ", Timer.Left())
+		case "r":
+			log.Infoln("Go routines: ", runtime.NumGoroutine())
+		default:
+			log.Infof("Got '%s' from terminal", buf)
+			commandChan <- buf
+		}
 	}
 }
 

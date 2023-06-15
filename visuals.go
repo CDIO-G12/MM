@@ -24,14 +24,11 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 	sortedBalls := []u.PointType{}
 	orangeBall := u.PointType{X: 0, Y: 0}
 	goalPos := u.PointType{X: 48, Y: 355}
-	goalPos.X += int(u.MmToGoal * u.GetPixelDist())
 	currentBall := u.PointType{}
-	//active := false
 	robotActive := false
 	robotWaiting := false
 	lastCorners := [4]u.PointType{}
 	sendChan := make(chan string, 15)
-	//orangeFound := false
 
 	visLog := l.Init_log("Visuals", u.VisualPort-1)
 	visLog.Log("Visuals log connected")
@@ -39,12 +36,6 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 	// this routine handles commands comming from the robot
 	go func() {
 		for {
-			// if it is not active, it will ignore commands from the robot
-			/*if !active {
-				time.Sleep(100 * time.Millisecond)
-				continue
-			}*/
-
 			// recieve command from robot, and handle
 			cmd := <-commandChan
 			visLog.Info("Recieved: ", cmd)
@@ -56,13 +47,19 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 			case "gone", "pause":
 				robotActive = false
 
+			case "cal":
+				poiChan <- u.PoiType{Category: u.Calibrate}
+
 			case "nextIf":
 				if len(sortedBalls) == 0 && orangeBall.X == 0 {
 					continue
 				}
 				fallthrough
 
-			case "next": // Send next ball
+			case "next", "go": // Send next ball
+				if cmd == "go" {
+					Timer.Start()
+				}
 				robotActive = true
 				if orangeBall == currentBall {
 					orangeBall.X = 0
