@@ -57,6 +57,15 @@ func InArray[K comparable](needle K, haystack []K) bool {
 	return false
 }
 
+func InArrayClose(needle PointType, haystack []PointType) bool {
+	for _, v := range haystack {
+		if needle.IsClose(v, 10) {
+			return true
+		}
+	}
+	return false
+}
+
 func Pop[K any](slice *[]K) K {
 	f := len(*slice)
 	rv := (*slice)[f-1]

@@ -200,11 +200,12 @@ func (f *FrameType) createTestImg(points []u.PoiType, name string, middle []u.Po
 	// Encode as PNG.
 	file, err := os.Create(fmt.Sprint("output/", name, ".png"))
 	if err != nil {
-		log.Fatal(err)
+		return
 	}
 	err = png.Encode(file, img)
 	if err != nil {
-		log.Fatal(err)
+		file.Close()
+		return
 	}
 	file.Close()
 }

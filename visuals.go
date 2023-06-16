@@ -102,7 +102,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					point.Y, _ = strconv.Atoi(spl[2])
 					visLog.Info(spl)
 
-					if u.InArray(point, sortedBalls) || point.IsClose(orangeBall, 3) {
+					if u.InArrayClose(point, sortedBalls) || point.IsClose(orangeBall, 3) {
 						poiChan <- u.PoiType{Category: u.Found}
 					} else {
 						poiChan <- u.PoiType{Category: u.NotFound}

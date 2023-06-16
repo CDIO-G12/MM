@@ -239,7 +239,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 
 				commandChan <- fmt.Sprintf("%d/%d/255/200/0\n", nextGoto.Point.X, nextGoto.Point.Y)
 
-				if (dist < 75 && nextGoto.Category == u.WayPoint) || (dist < 10 && nextGoto.Category == u.PreciseWayPoint) {
+				if (dist < 75 && nextGoto.Category == u.WayPoint) || (dist < 30 && nextGoto.Category == u.PreciseWayPoint) {
 					setState(stateNextPos)
 					continue
 					// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
@@ -254,7 +254,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					if !success {
 						break loop
 					}
-				} else if (angle < currentPos.Angle-5 || angle > currentPos.Angle+5) && u.Abs(dist) > 200 {
+				} else if (angle < currentPos.Angle-3 || angle > currentPos.Angle+3) && u.Abs(dist) > 200 {
 					success := sendToBot(conn, calcRotation(angle-currentPos.Angle, dist > 30 && dist < 100))
 					if !success {
 						break loop
