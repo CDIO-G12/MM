@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const print = true
+
 func setupFrame() *FrameType {
 	poiChan := make(chan u.PoiType)
 	frame := NewFrame(poiChan)
@@ -45,7 +47,9 @@ func TestFrameIntersect(t *testing.T) {
 
 	t.Log("m:", moves)
 
-	frame.createTestImg(moves, "tI")
+	if print {
+		frame.createTestImg(moves, t.Name())
+	}
 	if fmt.Sprint(moves) != "[{{380 200 0} ball} {{285 360 1} waypoint} {{450 700 0} start}]" {
 		t.FailNow()
 	}
@@ -64,7 +68,9 @@ func TestFrameDoubleIntersect(t *testing.T) {
 
 	t.Log("m:", moves)
 
-	frame.createTestImg(moves, "tDI")
+	if print {
+		frame.createTestImg(moves, t.Name())
+	}
 	if fmt.Sprint(moves) != "[{{380 200 0} ball} {{285 360 2} waypoint} {{491 564 1} waypoint} {{600 550 0} start}]" {
 		t.FailNow()
 	}
@@ -83,7 +89,9 @@ func TestFrameNoIntersect(t *testing.T) {
 
 	t.Log("m:", moves)
 
-	frame.createTestImg(moves, "tNI")
+	if print {
+		frame.createTestImg(moves, t.Name())
+	}
 	if fmt.Sprint(moves) != "[{{100 350 0} ball} {{520 700 0} start}]" {
 		t.FailNow()
 	}
@@ -102,7 +110,9 @@ func TestFrameSpecialCase(t *testing.T) {
 
 	t.Log("m:", moves)
 
-	frame.createTestImg(moves, "tSC")
+	if print {
+		frame.createTestImg(moves, t.Name())
+	}
 	if fmt.Sprint(moves) != "[{{268 532 0} ball} {{491 564 2} waypoint} {{694 361 1} waypoint} {{760 242 0} start}]" {
 		t.FailNow()
 	}
@@ -121,7 +131,9 @@ func TestFrameSpecialCase2(t *testing.T) {
 
 	t.Log("m:", moves)
 
-	frame.createTestImg(moves, "tSC2")
+	if print {
+		frame.createTestImg(moves, t.Name())
+	}
 	if fmt.Sprint(moves) != "[{{650 550 0} ball} {{700 600 0} start}]" {
 		t.FailNow()
 	}
@@ -139,8 +151,10 @@ func TestFrameMiddleXBall(t *testing.T) {
 
 	t.Log("m:", moves)
 
-	frame.createTestImg(moves, "tMX")
-	if fmt.Sprint(moves) != "[{{510 390 40} ball} {{767 647 225} precise waypoint} {{870 750 225} waypoint} {{700 600 0} start}]" {
+	if print {
+		frame.createTestImg(moves, t.Name())
+	}
+	if fmt.Sprint(moves) != "[{{510 390 40} ball} {{767 647 225} precise waypoint} {{819 699 225} waypoint} {{700 600 0} start}]" {
 		t.FailNow()
 	}
 
@@ -149,26 +163,31 @@ func TestFrameMiddleXBall(t *testing.T) {
 type testType struct {
 	name       string
 	currentPos u.PointType
-	ball       u.PointType
+	next       u.PoiType
 	expected   string
 }
 
 var tests = []testType{
 	{name: "TMiddleX1",
 		currentPos: u.PointType{X: 700, Y: 600},
-		ball:       u.PointType{X: 510, Y: 390},
-		expected:   "[{{510 390 40} ball} {{767 647 225} precise waypoint} {{870 750 225} waypoint} {{700 600 0} start}]",
+		next:       u.PoiType{Point: u.PointType{X: 510, Y: 390}, Category: u.Ball},
+		expected:   "[{{510 390 40} ball} {{767 647 225} precise waypoint} {{819 699 225} waypoint} {{700 600 0} start}]",
 	}, {name: "TMiddleX2",
 		currentPos: u.PointType{X: 700, Y: 600},
-		ball:       u.PointType{X: 470, Y: 340},
-		expected:   "[{{470 340 40} ball} {{212 82 45} precise waypoint} {{109 -21 45} waypoint} {{285 360 2} waypoint} {{491 564 1} waypoint} {{700 600 0} start}]",
-	}, {name: "TMiddleX2",
-		currentPos: u.PointType{X: 700, Y: 600},
-		ball:       u.PointType{X: 470, Y: 340},
-		expected:   "[{{470 340 40} ball} {{212 82 45} precise waypoint} {{109 -21 45} waypoint} {{285 360 2} waypoint} {{491 564 1} waypoint} {{700 600 0} start}]",
+		next:       u.PoiType{Point: u.PointType{X: 470, Y: 340}, Category: u.Ball},
+		expected:   "[{{470 340 40} ball} {{212 82 45} precise waypoint} {{160 30 45} waypoint} {{285 360 2} waypoint} {{491 564 1} waypoint} {{700 600 0} start}]",
+	}, {name: "TMiddleX3",
+		currentPos: u.PointType{X: 100, Y: 600},
+		next:       u.PoiType{Point: u.PointType{X: 470, Y: 340}, Category: u.Ball},
+		expected:   "[{{470 340 40} ball} {{212 82 45} precise waypoint} {{160 30 45} waypoint} {{100 600 0} start}]",
+	}, {name: "TMiddleXDump",
+		currentPos: u.PointType{X: 100, Y: 600},
+		next:       u.PoiType{Point: u.PointType{X: 5, Y: 360}, Category: u.Goal},
+		expected:   "[{{5 360 21} goal} {{60 360 0} waypoint} {{115 360 0} waypoint} {{100 600 0} start}]",
 	},
 }
 var currentTest testType
+var f *FrameType
 
 func TestMultiple(t *testing.T) {
 	for _, test := range tests {
@@ -181,16 +200,18 @@ func testSpecific(t *testing.T) {
 	test := currentTest
 	frame := setupFrame()
 
-	nextPos := u.PoiType{Point: test.ball, Category: u.Ball}
+	nextPos := test.next
 	u.CurrentPos.Set(test.currentPos)
 	frame.RateBall(&nextPos.Point)
 
 	moves := frame.CreateMoves(nextPos)
 	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
-	fmt.Println("m:", moves)
+	t.Log("m:", moves)
 
-	go frame.createTestImg(moves, fmt.Sprint("sub/", test.name))
+	if print {
+		frame.createTestImg(moves, fmt.Sprint("sub/", test.name))
+	}
 	if fmt.Sprint(moves) != test.expected {
 		t.FailNow()
 	}

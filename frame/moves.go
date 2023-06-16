@@ -53,29 +53,29 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 			waypoint.Point.Angle = middleXAngle + ang
 			lastAppended = u.PoiType{Point: waypoint.Point.CalcNextPos(u.DistanceFromBallMiddleX), Category: u.PreciseWayPoint}
 			directions = append(directions, lastAppended)
-			lastAppended = u.PoiType{Point: waypoint.Point.CalcNextPos(int(u.DistanceFromBallMiddleX * 1.4)), Category: u.WayPoint}
+			lastAppended = u.PoiType{Point: waypoint.Point.CalcNextPos(int(u.DistanceFromBallMiddleX * 1.2)), Category: u.WayPoint}
 			directions = append(directions, lastAppended)
 
 			//If the ball is in the corner
 		} else if nextPos.Point.Angle >= u.RatingCorner {
 			corner := nextPos.Point.Angle - u.RatingCorner
 			cat := u.PreciseWayPoint
-			for i := 1; i <= 2; i++ {
+			for i := 0; i < 3; i++ {
 				point := nextPos.Point
-				offset := int(u.DistanceFromBallCorner * u.GetPixelDist() * 0.707106781)
+				offset := int(u.DistanceFromBallCorner*u.GetPixelDist()*0.707106781) + i*20
 				switch corner {
 				case 0: //UpLeft
-					point.X += offset * i
-					point.Y += offset * i
+					point.X += offset
+					point.Y += offset
 				case 1: //UpRight
-					point.X -= offset * i
-					point.Y += offset * i
+					point.X -= offset
+					point.Y += offset
 				case 2: //DownRight
-					point.X -= offset * i
-					point.Y -= offset * i
+					point.X -= offset
+					point.Y -= offset
 				case 3: //DownLeft
-					point.X += offset * i
-					point.Y -= offset * i
+					point.X += offset
+					point.Y -= offset
 				}
 				if i == 2 {
 					cat = u.WayPoint
