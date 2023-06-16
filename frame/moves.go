@@ -25,14 +25,44 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 	lastAppended := nextPos
 	directions = append(directions, lastAppended)
 
+	//Set waypoints if the ball is in edge case
 	if nextPos.Category == u.Ball {
-		if nextPos.Point.Angle >= u.RatingCorner {
+		//If the ball is in the middleX position
+		if nextPos.Point.Angle >= u.RatingMiddleX {
+			f.mu.RLock()
+			middleXAngle := f.middleXAngle
+			f.mu.RUnlock()
+
+			//find what side of the middlex the ball is on
+			ang, _ := f.MiddleXPoint().Dist(nextPos.Point)
+			ang -= middleXAngle
+			fmt.Println("ANGLE: ", ang)
+
+			switch {
+			case ang >= 0 && ang < 90:
+				ang = 45
+			case ang >= 90 && ang < 180:
+				ang = 135
+			case ang >= 180 && ang < 270:
+				ang = 225
+			default:
+				ang = 315
+			}
+
+			waypoint := nextPos
+			waypoint.Point.Angle = middleXAngle + ang
+			lastAppended = u.PoiType{Point: waypoint.Point.CalcNextPos(u.DistanceFromBallMiddleX), Category: u.PreciseWayPoint}
+			directions = append(directions, lastAppended)
+			lastAppended = u.PoiType{Point: waypoint.Point.CalcNextPos(int(u.DistanceFromBallMiddleX * 1.4)), Category: u.WayPoint}
+			directions = append(directions, lastAppended)
+
+			//If the ball is in the corner
+		} else if nextPos.Point.Angle >= u.RatingCorner {
 			corner := nextPos.Point.Angle - u.RatingCorner
 			cat := u.PreciseWayPoint
 			for i := 1; i <= 2; i++ {
 				point := nextPos.Point
 				offset := int(u.DistanceFromBallCorner * u.GetPixelDist() * 0.707106781)
-				fmt.Println("Corner ", corner, point, offset)
 				switch corner {
 				case 0: //UpLeft
 					point.X += offset * i
@@ -53,11 +83,12 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 				lastAppended = u.PoiType{Point: point, Category: cat}
 				directions = append(directions, lastAppended)
 			}
+
+			//if the ball is close to border
 		} else if nextPos.Point.Angle >= u.RatingBorder {
 			border := nextPos.Point.Angle - u.RatingBorder
 			point := nextPos.Point
 			offset := int(u.DistanceFromBall * u.GetPixelDist())
-			fmt.Println("Border ", border, point, offset)
 			switch border {
 			case 0: //Up
 				point.Y += offset + 10
@@ -183,10 +214,11 @@ func (f *FrameType) FindThreeClosestXPoints() (points []u.PointType) {
 const hardDist = 75
 const borderDist = 25
 const cornerDist = 25
+const middleXDist = 50
 
 func (f *FrameType) RateBall(ball *u.PointType) {
-	f.MU.RLock()
-	defer f.MU.RUnlock()
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 	pd := u.GetPixelDist()
 
 	_, dist := f.MiddleXPoint().Dist(*ball)
@@ -228,10 +260,10 @@ func (f *FrameType) RateBall(ball *u.PointType) {
 }
 
 func (f *FrameType) WithinBorder(point u.PointType) bool {
-	f.MU.RLock()
+	f.mu.RLock()
 	for _, v := range f.Corners {
 		if v.X == 0 || v.Y == 0 {
-			f.MU.RUnlock()
+			f.mu.RUnlock()
 			return true
 		}
 	}
@@ -239,7 +271,7 @@ func (f *FrameType) WithinBorder(point u.PointType) bool {
 	left := u.Avg(f.Corners[0].X, f.Corners[3].X)
 	down := u.Avg(f.Corners[2].Y, f.Corners[3].Y)
 	right := u.Avg(f.Corners[1].X, f.Corners[2].X)
-	f.MU.RUnlock()
+	f.mu.RUnlock()
 
 	if point.Y <= up {
 		return false
@@ -259,12 +291,10 @@ func (f *FrameType) WithinBorder(point u.PointType) bool {
 func (f *FrameType) calcWaypointsNew(current, next u.PointType) (export []u.PoiType) {
 	waypoints := []u.PoiType{}
 
-	fmt.Println("Current ", current, "Next ", next)
-
-	for i := 0; i < 5; i++ {
-		//fmt.Println("Current ", current, "Next ", next, "I", i)
+	for i := 0; i < 2; i++ {
 		current = f.checkIntersect(current, next)
-		if current.X == 0 {
+		current.Angle = i + 1
+		if current.X <= 0 || current.Y <= 0 {
 			break
 		}
 		waypoints = append(waypoints, u.PoiType{Point: current, Category: u.WayPoint})
@@ -309,6 +339,8 @@ func checkWithin(point, start, stop u.PointType, threshold int) bool {
 
 // check if line between current and next intersects middlex guidecorners
 func (f *FrameType) checkIntersect(current, next u.PointType) (waypoint u.PointType) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 
 	intersectLRPoint := CalculateIntersection(current, next, f.guideCorners[0], f.guideCorners[1])
 	intersectUDPoint := CalculateIntersection(current, next, f.guideCorners[2], f.guideCorners[3])
@@ -319,11 +351,6 @@ func (f *FrameType) checkIntersect(current, next u.PointType) (waypoint u.PointT
 
 	intersectLR := checkWithin(intersectLRPoint, current, next, 5) && checkWithin(intersectLRPoint, f.guideCorners[0], f.guideCorners[1], 5)
 	intersectUD := checkWithin(intersectUDPoint, current, next, 5) && checkWithin(intersectUDPoint, f.guideCorners[2], f.guideCorners[3], 5)
-
-	fmt.Println("HER!!!!", current, next, intersectLRPoint, intersectUDPoint, intersectLR, intersectUD)
-
-	//fmt.Println("Waypoint: ", current, "Ball ", next, "LR Intersect: ", intersectLR, "UD Intersect: ", intersectUD, "LR Point: ", intersectLRPoint, "UD Point: ", intersectUDPoint)
-	//fmt.Println("middleX: ", f.MiddleXPoint())
 
 	// no intersections
 	if !intersectLR && !intersectUD {
@@ -380,7 +407,6 @@ func (f *FrameType) checkIntersect(current, next u.PointType) (waypoint u.PointT
 	//find the gc closest to robot
 	_, distLR := gcLR.Dist(current)
 	_, distUD := gcUD.Dist(current)
-	fmt.Println("dists", gcLR, gcUD, distLR, distUD)
 	if distUD < distLR {
 		waypoint = gcUD
 	} else {

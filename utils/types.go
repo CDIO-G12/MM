@@ -55,7 +55,7 @@ type PixelDistType struct {
 	MU         sync.RWMutex
 }
 
-var pixelDist = PixelDistType{Definition: 1}
+var pixelDist = PixelDistType{Definition: 0.5}
 
 type PointType struct {
 	X     int

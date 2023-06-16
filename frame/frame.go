@@ -8,15 +8,17 @@ import (
 	"image/png"
 	"os"
 	"sync"
+	"time"
 
 	log "github.com/s00500/env_logger"
 )
 
 type FrameType struct {
-	Corners [4]u.PointType
-	MiddleX [4]u.PointType
-	Goal    u.PointType
-	MU      sync.RWMutex
+	Corners      [4]u.PointType
+	MiddleX      [4]u.PointType
+	middleXAngle int
+	Goal         u.PointType
+	mu           sync.RWMutex
 
 	guideCorners [4]u.PointType
 }
@@ -29,28 +31,40 @@ func NewFrame(poiChan <-chan u.PoiType) *FrameType {
 		for poi := range poiChan {
 			switch poi.Category {
 			case u.Goal:
-				frame.MU.Lock()
+				frame.mu.Lock()
 				frame.Goal = poi.Point
-				frame.MU.Unlock()
+				frame.mu.Unlock()
 
 			case u.MiddleXcorner:
-				frame.MU.Lock()
+				if poi.Point.Angle >= len(frame.MiddleX) {
+					continue
+				}
+				frame.mu.Lock()
 				frame.MiddleX[poi.Point.Angle] = poi.Point
-				frame.MU.Unlock()
+				frame.mu.Unlock()
 				frame.updateGuideCorners(poi.Point.Angle)
 
 			case u.Corner:
 				if poi.Point.Angle >= len(frame.Corners) {
 					continue
 				}
-				frame.MU.Lock()
+				frame.mu.Lock()
 				frame.Corners[poi.Point.Angle] = poi.Point
-				frame.MU.Unlock()
+				frame.mu.Unlock()
 
 			default:
 				continue
 			}
 			//log.Infoln("Updated frame, ", poi)
+		}
+	}()
+
+	go func() {
+		for {
+			time.Sleep(1 * time.Second)
+			frame.mu.RLock()
+			frame.createTestImg([]u.PoiType{}, "frame", frame.MiddleX[:])
+			frame.mu.RUnlock()
 		}
 	}()
 
@@ -61,31 +75,42 @@ func (f *FrameType) updateGuideCorners(cornerNr int) {
 	if cornerNr >= len(f.MiddleX) {
 		return
 	}
-	f.MU.Lock()
-	defer f.MU.Unlock()
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
 	offset := int(u.GuideCornerOffset * u.GetPixelDist())
 
-	f.guideCorners[cornerNr] = f.MiddleX[cornerNr]
+	angleLR, _ := f.MiddleX[1].Dist(f.MiddleX[0])
+	angleUD, _ := f.MiddleX[3].Dist(f.MiddleX[2])
+	angleUD -= 90
 
+	f.middleXAngle = u.Avg(angleLR, angleUD)
+	f.middleXAngle = angleLR
+	//fmt.Println(f.middleXAngle, angleLR, angleUD)
+	/*if f.middleXAngle > 50 {
+		f.middleXAngle -= 90
+	}*/
+
+	f.guideCorners[cornerNr] = f.MiddleX[cornerNr]
 	switch cornerNr {
 	case 0: // left
-		f.guideCorners[0].X -= offset
+		f.guideCorners[0].Angle = f.middleXAngle
 	case 1: // right
-		f.guideCorners[1].X += offset
+		f.guideCorners[1].Angle = f.middleXAngle + 180
 	case 2: // top
-		f.guideCorners[2].Y -= offset
+		f.guideCorners[2].Angle = f.middleXAngle + 90
 	case 3: // bottom
-		f.guideCorners[3].Y += offset
+		f.guideCorners[3].Angle = f.middleXAngle + 270
 	}
+	f.guideCorners[cornerNr] = f.guideCorners[cornerNr].CalcNextPos(offset)
+
 }
 
 func (f *FrameType) MiddleXPoint() u.PointType {
-	f.MU.RLock()
-	defer f.MU.RUnlock()
-
+	f.mu.RLock()
 	sumX := f.MiddleX[0].X + f.MiddleX[1].X + f.MiddleX[2].X + f.MiddleX[3].X
 	sumY := f.MiddleX[0].Y + f.MiddleX[1].Y + f.MiddleX[2].Y + f.MiddleX[3].Y
+	f.mu.RUnlock()
 
 	middleX := sumX / 4
 	middleY := sumY / 4
@@ -94,13 +119,13 @@ func (f *FrameType) MiddleXPoint() u.PointType {
 }
 
 func (f *FrameType) findClosestGuidePosition(position u.PointType) u.PointType {
-	f.MU.RLock()
+	f.mu.RLock()
 	up := u.Avg(f.guideCorners[0].Y, f.guideCorners[1].Y)
 	left := u.Avg(f.guideCorners[0].X, f.guideCorners[3].X)
 	down := u.Avg(f.guideCorners[2].Y, f.guideCorners[3].Y)
 	right := u.Avg(f.guideCorners[1].X, f.guideCorners[2].X)
 
-	f.MU.RUnlock()
+	f.mu.RUnlock()
 	bordersDist := []int{u.Abs(position.Y - up), u.Abs(position.X - left), u.Abs(position.Y - down), u.Abs(position.X - right)}
 	//borders := []int{up, left, down, right}
 	min := 99999
@@ -173,7 +198,7 @@ func (f *FrameType) createTestImg(points []u.PoiType, name string, middle []u.Po
 	}
 
 	// Encode as PNG.
-	file, err := os.Create(fmt.Sprint(name, ".png"))
+	file, err := os.Create(fmt.Sprint("output/", name, ".png"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -195,7 +220,7 @@ func (f *FrameType) drawCircle(img *image.RGBA, center u.PointType, radius int, 
 }
 
 func (f *FrameType) GetGuideFrame() [4]u.PointType {
-	f.MU.RLock()
-	defer f.MU.RUnlock()
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 	return f.guideCorners
 }

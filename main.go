@@ -4,8 +4,11 @@ import (
 	ct "MM/conn_testers"
 	f "MM/frame"
 	u "MM/utils"
+	"flag"
 	"fmt"
+	"os"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -14,9 +17,20 @@ import (
 
 var Timer u.TimerType
 
-//CLICOLOR_FORCE=1 go run .
+// CLICOLOR_FORCE=1 go run .
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 func main() {
+	flag.Parse()
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
 	// enable line numbers in log
 	log.EnableLineNumbers()
 
@@ -49,6 +63,9 @@ func main() {
 			log.Infoln("Time left: ", Timer.Left())
 		case "r":
 			log.Infoln("Go routines: ", runtime.NumGoroutine())
+		case "exit":
+			pprof.StopCPUProfile()
+			log.Fatal("Exiting")
 		default:
 			log.Infof("Got '%s' from terminal", buf)
 			commandChan <- buf

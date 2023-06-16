@@ -276,7 +276,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					if dist > 255 {
 						dist = 255
 					}
-					success := sendToBot(conn, []byte{[]byte("F")[0], byte(dist - 3)})
+					success := sendToBot(conn, []byte{[]byte("F")[0], byte(int(dist / 2))})
 					if !success {
 						break loop
 					}
