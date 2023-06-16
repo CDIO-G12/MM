@@ -225,10 +225,12 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				}
 
 				currentPos := u.CurrentPos.Get()
-				angle, dist := currentPos.Dist(nextGoto.Point)
+				angle, dist := currentPos.DistAndAngle(nextGoto.Point)
 				dist = int(float64(dist) / u.GetPixelDist()) //convert from pixel to mm
 				if nextGoto.Category == u.Ball {
-					if nextGoto.Point.Angle >= u.RatingCorner {
+					if nextGoto.Point.Angle >= u.RatingMiddleX {
+						dist -= u.DistanceFromBallMiddleX
+					} else if nextGoto.Point.Angle >= u.RatingCorner {
 						dist -= u.DistanceFromBallCorner
 					} else {
 						dist -= u.DistanceFromBall

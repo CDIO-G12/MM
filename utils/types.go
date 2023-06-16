@@ -99,7 +99,7 @@ func SetPixelDist(in float64) {
 	//log.Infoln("Updated pixel def: ", pixelDist.Definition)
 }
 
-func (p1 PointType) Dist(p2 PointType) (angle int, dist int) {
+func (p1 PointType) DistAndAngle(p2 PointType) (angle int, dist int) {
 	first := math.Pow(float64(p2.X-p1.X), 2)
 	second := math.Pow(float64(p2.Y-p1.Y), 2)
 	dist = int(math.Sqrt(first + second))
@@ -113,10 +113,17 @@ func (p1 PointType) Dist(p2 PointType) (angle int, dist int) {
 	return
 }
 
+func (p1 PointType) Dist(p2 PointType) (dist int) {
+	first := math.Pow(float64(p2.X-p1.X), 2)
+	second := math.Pow(float64(p2.Y-p1.Y), 2)
+	dist = int(math.Sqrt(first + second))
+
+	return
+}
+
 // compares 2 points to see if they are close to each other
 func (old PointType) IsClose(new PointType, threshold int) bool {
-	_, len := old.Dist(new)
-	return len < threshold
+	return old.Dist(new) < threshold
 }
 
 // sort balls purely based on length to closest
@@ -132,7 +139,7 @@ func (currentPos PointType) SortBalls(balls []PointType) (sortedBalls []PointTyp
 		minDist := 99999
 		minI := 0
 		for j, v := range balls {
-			_, len := currentPos.Dist(v)
+			len := currentPos.Dist(v)
 			if len < minDist {
 				minDist = len
 				minI = j

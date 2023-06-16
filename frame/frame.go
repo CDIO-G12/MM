@@ -9,8 +9,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	log "github.com/s00500/env_logger"
 )
 
 type FrameType struct {
@@ -25,7 +23,6 @@ type FrameType struct {
 
 func NewFrame(poiChan <-chan u.PoiType) *FrameType {
 	frame := FrameType{Corners: [4]u.PointType{{X: 25, Y: 25}}}
-	log.Infoln("Frame created")
 
 	go func() {
 		for poi := range poiChan {
@@ -63,7 +60,7 @@ func NewFrame(poiChan <-chan u.PoiType) *FrameType {
 		for {
 			time.Sleep(1 * time.Second)
 			frame.mu.RLock()
-			frame.createTestImg([]u.PoiType{}, "frame", frame.MiddleX[:])
+			frame.createTestImg([]u.PoiType{}, "frame")
 			frame.mu.RUnlock()
 		}
 	}()
@@ -80,8 +77,8 @@ func (f *FrameType) updateGuideCorners(cornerNr int) {
 
 	offset := int(u.GuideCornerOffset * u.GetPixelDist())
 
-	angleLR, _ := f.MiddleX[1].Dist(f.MiddleX[0])
-	angleUD, _ := f.MiddleX[3].Dist(f.MiddleX[2])
+	angleLR, _ := f.MiddleX[1].DistAndAngle(f.MiddleX[0])
+	angleUD, _ := f.MiddleX[3].DistAndAngle(f.MiddleX[2])
 	angleUD -= 90
 
 	f.middleXAngle = u.Avg(angleLR, angleUD)
@@ -165,7 +162,7 @@ func (f *FrameType) findClosestGuidePosition(position u.PointType) u.PointType {
 	return pos
 }
 
-func (f *FrameType) createTestImg(points []u.PoiType, name string, middle []u.PointType) {
+func (f *FrameType) createTestImg(points []u.PoiType, name string) {
 	currentPos := u.CurrentPos.Get()
 	width := 980
 	height := 720
@@ -175,25 +172,30 @@ func (f *FrameType) createTestImg(points []u.PoiType, name string, middle []u.Po
 
 	img := image.NewRGBA(image.Rectangle{upLeft, lowRight})
 
+	for i := f.Corners[0].X; i < f.Corners[1].X; i++ {
+		img.Set(i, f.Corners[0].Y, color.RGBA{75, 75, 75, 0xff})
+	}
+
 	for _, p := range f.guideCorners {
 		f.drawCircle(img, p, 2, color.RGBA{100, 100, 0, 0xff})
 	}
 
-	for _, p := range middle {
+	for _, p := range f.MiddleX {
 		f.drawCircle(img, p, 5, color.RGBA{255, 0, 0, 0xff})
 	}
+	f.drawCircle(img, f.MiddleXPoint(), 5, color.RGBA{100, 0, 0, 0xff})
 
 	f.drawCircle(img, currentPos, 10, color.RGBA{255, 255, 255, 0xff})
 
 	for _, p := range points {
 		if p.Category == u.Ball {
 			f.drawCircle(img, p.Point, 5, color.RGBA{255, 0, 255, 0xff})
-		}
-		if p.Category == u.WayPoint {
-			f.drawCircle(img, p.Point, 3, color.RGBA{26, 117, 123, 0xff})
-		}
-		if p.Category == u.PreciseWayPoint {
-			f.drawCircle(img, p.Point, 3, color.RGBA{120, 117, 26, 0xff})
+		} else if p.Category == u.WayPoint {
+			f.drawCircle(img, p.Point, 6, color.RGBA{0, 100, 100, 0xff})
+		} else if p.Category == u.PreciseWayPoint {
+			f.drawCircle(img, p.Point, 3, color.RGBA{0, 180, 180, 0xff})
+		} else if p.Category != u.Start {
+			f.drawCircle(img, p.Point, 3, color.RGBA{150, 0, 180, 0xff})
 		}
 	}
 
