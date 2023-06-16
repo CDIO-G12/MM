@@ -9,6 +9,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	log "github.com/s00500/env_logger"
 )
 
 type FrameType struct {
@@ -172,10 +174,6 @@ func (f *FrameType) createTestImg(points []u.PoiType, name string) {
 
 	img := image.NewRGBA(image.Rectangle{upLeft, lowRight})
 
-	for i := f.Corners[0].X; i < f.Corners[1].X; i++ {
-		img.Set(i, f.Corners[0].Y, color.RGBA{75, 75, 75, 0xff})
-	}
-
 	for _, p := range f.guideCorners {
 		f.drawCircle(img, p, 2, color.RGBA{100, 100, 0, 0xff})
 	}
@@ -201,11 +199,11 @@ func (f *FrameType) createTestImg(points []u.PoiType, name string) {
 
 	// Encode as PNG.
 	file, err := os.Create(fmt.Sprint("output/", name, ".png"))
-	if err != nil {
+	if log.ShouldWarn(err) {
 		return
 	}
 	err = png.Encode(file, img)
-	if err != nil {
+	if log.ShouldWarn(err) {
 		file.Close()
 		return
 	}
@@ -226,4 +224,30 @@ func (f *FrameType) GetGuideFrame() [4]u.PointType {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	return f.guideCorners
+}
+
+// sort balls purely based on length to closest
+func (f *FrameType) SortBalls(balls []u.PointType) (sortedBalls []u.PointType, err error) {
+	currentPos := u.CurrentPos.Get()
+	origLength := len(balls)
+	if origLength < 2 {
+		sortedBalls = balls
+		return
+	}
+
+	for i := 0; i < origLength; i++ {
+		minDist := 99999
+		minI := 0
+		for j, v := range balls {
+			len := currentPos.Dist(v)
+			if len < minDist {
+				minDist = len
+				minI = j
+			}
+		}
+		sortedBalls = append(sortedBalls, balls[minI])
+		currentPos = balls[minI]
+		balls = u.Remove(balls, minI)
+	}
+	return
 }

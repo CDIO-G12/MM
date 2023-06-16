@@ -126,34 +126,8 @@ func (old PointType) IsClose(new PointType, threshold int) bool {
 	return old.Dist(new) < threshold
 }
 
-// sort balls purely based on length to closest
-func (currentPos PointType) SortBalls(balls []PointType) (sortedBalls []PointType, err error) {
-	origLength := len(balls)
-	if origLength < 2 {
-		sortedBalls = balls
-		return
-	}
-	//fmt.Println(currentPos.findRoute(balls, []pointType{}))
-
-	for i := 0; i < origLength; i++ {
-		minDist := 99999
-		minI := 0
-		for j, v := range balls {
-			len := currentPos.Dist(v)
-			if len < minDist {
-				minDist = len
-				minI = j
-			}
-		}
-		sortedBalls = append(sortedBalls, balls[minI])
-		currentPos = balls[minI]
-		balls = remove(balls, minI)
-	}
-	return
-}
-
 // remove an element from a slice
-func remove(slice []PointType, s int) []PointType {
+func Remove(slice []PointType, s int) []PointType {
 	return append(slice[:s], slice[s+1:]...)
 }
 

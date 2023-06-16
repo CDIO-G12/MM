@@ -82,7 +82,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 
 				ballBuffer := make([]u.PointType, len(sortedBalls))
 				copy(ballBuffer, sortedBalls)
-				sortedBalls, _ = u.CurrentPos.Get().SortBalls(ballBuffer)
+				sortedBalls, _ = frame.SortBalls(ballBuffer)
 
 				if len(sortedBalls) == 0 {
 					poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
@@ -238,7 +238,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						copy(balls, ballBuffer)
 
 						var err error
-						sortedBalls, err = u.CurrentPos.Get().SortBalls(ballBuffer)
+						sortedBalls, err = frame.SortBalls(ballBuffer)
 						if log.Should(err) {
 							continue
 						}
