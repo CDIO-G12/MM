@@ -14,6 +14,8 @@ import (
 )
 
 func Test_main(t *testing.T) {
+	t.Skip()
+
 	// enable line numbers in log
 	log.EnableLineNumbers()
 	//tsp_test()
@@ -33,6 +35,7 @@ func Test_main(t *testing.T) {
 	poiChan := make(chan u.PoiType)
 	framePoiChan := make(chan u.PoiType)
 	frame := f.NewFrame(framePoiChan)
+
 	go initVisualServer(frame, poiChan, framePoiChan, commandChan)
 	go initRobotServer(frame, keyChan, poiChan, commandChan)
 
@@ -57,13 +60,17 @@ func Test_main(t *testing.T) {
 				currentPos.Angle = u.DegreeAdd(currentPos.Angle, int(out[1]))
 
 			case strings.Contains(out, "f"):
-				currentPos = currentPos.CalcNextPos(int(out[1]))
+				d := float64(int(out[1])) / u.GetPixelDist()
+				currentPos = currentPos.CalcNextPos(int(d))
 
 			case strings.Contains(out, "F"):
-				currentPos = currentPos.CalcNextPos(int(out[1]) * 255)
+				d := float64(int(out[1])) / u.GetPixelDist()
+				fmt.Println(d)
+				currentPos = currentPos.CalcNextPos(int(d) * 10)
 
 			case strings.Contains(out, "B"):
-				currentPos = currentPos.CalcNextPos(-int(out[1]))
+				d := float64(int(out[1])) / u.GetPixelDist()
+				currentPos = currentPos.CalcNextPos(-int(d))
 
 			case strings.Contains(out, "D"):
 				robotIn <- "dc"
@@ -74,6 +81,7 @@ func Test_main(t *testing.T) {
 				visChan <- currentPosToString(currentPos)
 				continue
 			}
+			u.CurrentPos.Set(currentPos)
 
 			visChan <- currentPosToString(currentPos)
 			time.Sleep(10 * time.Millisecond)

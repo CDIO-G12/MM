@@ -2,7 +2,7 @@ package frame
 
 import (
 	u "MM/utils"
-	"reflect"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -40,13 +40,13 @@ func TestFrameIntersect(t *testing.T) {
 	u.CurrentPos.Set(u.PointType{X: 450, Y: 700})
 	frame.RateBall(&nextPos.Point)
 
-	moves := []u.PoiType{{Point: u.CurrentPos.Get(), Category: u.Start}}
-	moves = append(moves, frame.CreateMoves(nextPos)...)
+	moves := frame.CreateMoves(nextPos)
+	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
-	t.Logf("m: %+v", moves)
+	t.Log("m:", moves)
 
-	frame.createTestImg(moves, "tI", frame.MiddleX[:])
-	if !reflect.DeepEqual(moves, []u.PointType{{X: 100, Y: 240}, {X: 60, Y: 100}}) {
+	frame.createTestImg(moves, "tI")
+	if fmt.Sprint(moves) != "[{{380 200 0} ball} {{285 360 1} waypoint} {{450 700 0} start}]" {
 		t.FailNow()
 	}
 
@@ -62,10 +62,10 @@ func TestFrameDoubleIntersect(t *testing.T) {
 	moves := frame.CreateMoves(nextPos)
 	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
-	t.Logf("m: %+v", moves)
+	t.Log("m:", moves)
 
-	frame.createTestImg(moves, "tDI", frame.MiddleX[:])
-	if !reflect.DeepEqual(moves, []u.PointType{{X: 100, Y: 240}, {X: 60, Y: 100}}) {
+	frame.createTestImg(moves, "tDI")
+	if fmt.Sprint(moves) != "[{{380 200 0} ball} {{285 360 2} waypoint} {{491 564 1} waypoint} {{600 550 0} start}]" {
 		t.FailNow()
 	}
 
@@ -78,13 +78,13 @@ func TestFrameNoIntersect(t *testing.T) {
 	u.CurrentPos.Set(u.PointType{X: 520, Y: 700})
 	frame.RateBall(&nextPos.Point)
 
-	moves := []u.PoiType{{Point: u.CurrentPos.Get(), Category: u.Start}}
-	moves = append(moves, frame.CreateMoves(nextPos)...)
+	moves := frame.CreateMoves(nextPos)
+	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
-	t.Logf("m: %+v", moves)
+	t.Log("m:", moves)
 
-	frame.createTestImg(moves, "tNI", frame.MiddleX[:])
-	if !reflect.DeepEqual(moves, []u.PointType{{X: 100, Y: 240}, {X: 60, Y: 100}}) {
+	frame.createTestImg(moves, "tNI")
+	if fmt.Sprint(moves) != "[{{100 350 0} ball} {{520 700 0} start}]" {
 		t.FailNow()
 	}
 
@@ -97,13 +97,13 @@ func TestFrameSpecialCase(t *testing.T) {
 	u.CurrentPos.Set(u.PointType{X: 760, Y: 242})
 	frame.RateBall(&nextPos.Point)
 
-	moves := []u.PoiType{{Point: u.CurrentPos.Get(), Category: u.Start}}
-	moves = append(moves, frame.CreateMoves(nextPos)...)
+	moves := frame.CreateMoves(nextPos)
+	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
-	t.Logf("m: %+v", moves)
+	t.Log("m:", moves)
 
-	frame.createTestImg(moves, "tSC", frame.MiddleX[:])
-	if !reflect.DeepEqual(moves, []u.PointType{{X: 100, Y: 240}, {X: 60, Y: 100}}) {
+	frame.createTestImg(moves, "tSC")
+	if fmt.Sprint(moves) != "[{{268 532 0} ball} {{491 564 2} waypoint} {{694 361 1} waypoint} {{760 242 0} start}]" {
 		t.FailNow()
 	}
 
@@ -116,41 +116,82 @@ func TestFrameSpecialCase2(t *testing.T) {
 	u.CurrentPos.Set(u.PointType{X: 700, Y: 600})
 	frame.RateBall(&nextPos.Point)
 
-	moves := []u.PoiType{{Point: u.CurrentPos.Get(), Category: u.Start}}
-	moves = append(moves, frame.CreateMoves(nextPos)...)
+	moves := frame.CreateMoves(nextPos)
+	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
-	t.Logf("m: %+v", moves)
+	t.Log("m:", moves)
 
-	frame.createTestImg(moves, "tSC2", frame.MiddleX[:])
-	if !reflect.DeepEqual(moves, []u.PointType{{X: 100, Y: 240}, {X: 60, Y: 100}}) {
+	frame.createTestImg(moves, "tSC2")
+	if fmt.Sprint(moves) != "[{{650 550 0} ball} {{700 600 0} start}]" {
 		t.FailNow()
 	}
 }
 
-/*
-func createTestImg(points []u.PointType, name string) {
-	width := 250
-	height := 150
+func TestFrameMiddleXBall(t *testing.T) {
+	frame := setupFrame()
 
-	upLeft := image.Point{0, 0}
-	lowRight := image.Point{width, height}
+	nextPos := u.PoiType{Point: u.PointType{X: 510, Y: 390}, Category: u.Ball}
+	u.CurrentPos.Set(u.PointType{X: 700, Y: 600})
+	frame.RateBall(&nextPos.Point)
 
-	colors := []color.RGBA{{100, 200, 200, 0xff}, {100, 200, 200, 0xff}, {100, 200, 200, 0xff}, {100, 200, 200, 0xff}, {100, 200, 200, 0xff}, {100, 200, 200, 0xff}}
-	img := image.NewRGBA(image.Rectangle{upLeft, lowRight})
+	moves := frame.CreateMoves(nextPos)
+	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
-	for i, p := range points {
-		img.Set(p.X, p.Y, colors[i])
+	t.Log("m:", moves)
+
+	frame.createTestImg(moves, "tMX")
+	if fmt.Sprint(moves) != "[{{510 390 40} ball} {{767 647 225} precise waypoint} {{870 750 225} waypoint} {{700 600 0} start}]" {
+		t.FailNow()
 	}
 
-	// Encode as PNG.
-	f, err := os.Create(fmt.Sprint(name, ".png"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = png.Encode(f, img)
-	if err != nil {
-		log.Fatal(err)
-	}
-	f.Close()
 }
-*/
+
+type testType struct {
+	name       string
+	currentPos u.PointType
+	ball       u.PointType
+	expected   string
+}
+
+var tests = []testType{
+	{name: "TMiddleX1",
+		currentPos: u.PointType{X: 700, Y: 600},
+		ball:       u.PointType{X: 510, Y: 390},
+		expected:   "[{{510 390 40} ball} {{767 647 225} precise waypoint} {{870 750 225} waypoint} {{700 600 0} start}]",
+	}, {name: "TMiddleX2",
+		currentPos: u.PointType{X: 700, Y: 600},
+		ball:       u.PointType{X: 470, Y: 340},
+		expected:   "[{{470 340 40} ball} {{212 82 45} precise waypoint} {{109 -21 45} waypoint} {{285 360 2} waypoint} {{491 564 1} waypoint} {{700 600 0} start}]",
+	}, {name: "TMiddleX2",
+		currentPos: u.PointType{X: 700, Y: 600},
+		ball:       u.PointType{X: 470, Y: 340},
+		expected:   "[{{470 340 40} ball} {{212 82 45} precise waypoint} {{109 -21 45} waypoint} {{285 360 2} waypoint} {{491 564 1} waypoint} {{700 600 0} start}]",
+	},
+}
+var currentTest testType
+
+func TestMultiple(t *testing.T) {
+	for _, test := range tests {
+		currentTest = test
+		t.Run(test.name, testSpecific)
+	}
+}
+
+func testSpecific(t *testing.T) {
+	test := currentTest
+	frame := setupFrame()
+
+	nextPos := u.PoiType{Point: test.ball, Category: u.Ball}
+	u.CurrentPos.Set(test.currentPos)
+	frame.RateBall(&nextPos.Point)
+
+	moves := frame.CreateMoves(nextPos)
+	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
+
+	fmt.Println("m:", moves)
+
+	go frame.createTestImg(moves, fmt.Sprint("sub/", test.name))
+	if fmt.Sprint(moves) != test.expected {
+		t.FailNow()
+	}
+}
