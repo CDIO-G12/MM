@@ -32,7 +32,7 @@ const (
 
 var state = stateWait
 
-var stateMU = sync.Mutex{}
+var stateMU = sync.RWMutex{}
 var robLog l.Log_type
 
 // initRobotServer is the main function for the robot server. In here are multiple goroutines and a statemachine to handle robot control.
@@ -142,6 +142,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				case strings.Contains(recieved, "gb"): // got ball - is send when the robot got a ball
 					// Count the ball, and keep track of how many balls are stored at the moment
 					ballCounter++
+					commandChan <- "gotBall" // got balls
 
 					// If the storage is full, we move to goal, otherwise we ask for the next ball
 					if ballCounter >= u.BallCounterMax {
@@ -155,8 +156,9 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				case strings.Contains(recieved, "fm"): // finished move - is sent when the robot has done a move, and is waiting for next instruction
 					// Every time we are done with a move, we ask for the current position, and runs the next move
 					time.Sleep(200 * time.Millisecond)
-					setState(stateNextMove)
-
+					if getState() != stateEmergency {
+						setState(stateNextMove)
+					}
 				case strings.Contains(recieved, "fd"): // finish dump
 					ballCounter = 0
 					log.Infoln("Dumped at: ", Timer.Now())
@@ -189,6 +191,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					frame.RateBall(&nextPos.Point)
 					log.Infoln("Rated ball as: ", nextPos.Point.Angle)
 				}
+				commandChan <- fmt.Sprintf("%d/%d/200/200/200\n", nextPos.Point.X, nextPos.Point.Y)
 				positionQueue = frame.CreateMoves(nextPos)
 				log.Info("Got position queue", positionQueue)
 				send := ""
@@ -205,8 +208,8 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					continue
 				}
 				nextGoto = u.Pop(&positionQueue)
-				if nextGoto.Point.X == 0 {
-					log.Error("Error! Could not get next goto")
+				if !frame.WithinBorder(nextGoto.Point) && false {
+					log.Error("Error! Point outside of field", nextGoto)
 					continue
 				}
 				setState(stateNextMove)
@@ -236,7 +239,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 
 				commandChan <- fmt.Sprintf("%d/%d/255/200/0\n", nextGoto.Point.X, nextGoto.Point.Y)
 
-				if (dist < 40 && nextGoto.Category == u.WayPoint) || (dist < 10 && nextGoto.Category == u.PreciseWayPoint) {
+				if (dist < 75 && nextGoto.Category == u.WayPoint) || (dist < 10 && nextGoto.Category == u.PreciseWayPoint) {
 					setState(stateNextPos)
 					continue
 					// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
@@ -251,7 +254,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					if !success {
 						break loop
 					}
-				} else if (angle < currentPos.Angle-10 || angle > currentPos.Angle+10) && u.Abs(dist) > 200 {
+				} else if (angle < currentPos.Angle-5 || angle > currentPos.Angle+5) && u.Abs(dist) > 200 {
 					success := sendToBot(conn, calcRotation(angle-currentPos.Angle, dist > 30 && dist < 100))
 					if !success {
 						break loop
@@ -355,8 +358,8 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 }
 
 func getState() states {
-	stateMU.Lock()
-	defer stateMU.Unlock()
+	stateMU.RLock()
+	defer stateMU.RUnlock()
 	return state
 }
 
@@ -395,7 +398,7 @@ func manControlInt(input string) (out []byte) {
 func calcRotation(angle int, close bool) []byte {
 	left := "L"
 	right := "R"
-	if close {
+	if close && false {
 		left = "l"
 		right = "r"
 	}

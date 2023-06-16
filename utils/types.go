@@ -69,22 +69,22 @@ type PoiType struct {
 }
 
 type SafePointType struct {
-	Point PointType
-	MU    sync.Mutex
+	point PointType
+	mu    sync.RWMutex
 }
 
 var CurrentPos = SafePointType{}
 
 func (p *SafePointType) Get() PointType {
-	p.MU.Lock()
-	defer p.MU.Unlock()
-	return p.Point
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.point
 }
 
 func (p *SafePointType) Set(new PointType) {
-	p.MU.Lock()
-	defer p.MU.Unlock()
-	p.Point = new
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.point = new
 }
 
 func GetPixelDist() float64 {

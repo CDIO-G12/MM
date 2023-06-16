@@ -29,6 +29,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 	robotWaiting := false
 	lastCorners := [4]u.PointType{}
 	sendChan := make(chan string, 15)
+	sendOrange := false
 
 	visLog := l.Init_log("Visuals", u.VisualPort-1)
 	visLog.Log("Visuals log connected")
@@ -50,6 +51,11 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 			case "cal":
 				poiChan <- u.PoiType{Category: u.Calibrate}
 
+			case "gotBall":
+				if sendOrange {
+					sendChan <- "no\n"
+				}
+
 			case "nextIf":
 				if len(sortedBalls) == 0 && orangeBall.X == 0 {
 					continue
@@ -63,7 +69,9 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				robotActive = true
 				if orangeBall == currentBall {
 					orangeBall.X = 0
-					sendChan <- "no"
+					sendOrange = true
+				} else {
+					sendOrange = false
 				}
 
 				if orangeBall.X != 0 {
@@ -282,7 +290,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				case "c": // corner - c/i/x/y
 					if tempI, err := strconv.Atoi(split[1]); err == nil && tempI < 4 && len(split) > 3 {
 						if tempX, err := strconv.Atoi(split[2]); err == nil {
-							if tempY, err := strconv.Atoi(split[3]); err == nil {
+							if tempY, err := strconv.Atoi(split[3]); err == nil && tempY > 2 && tempX > 2 {
 								corner := u.PointType{X: tempX, Y: tempY, Angle: tempI}
 								if lastCorners[tempI] != corner {
 									lastCorners[tempI] = corner
@@ -304,7 +312,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				case "m": // middle x
 					if tempI, err := strconv.Atoi(split[1]); err == nil && tempI < 4 && len(split) > 3 {
 						if tempX, err := strconv.Atoi(split[2]); err == nil {
-							if tempY, err := strconv.Atoi(split[3]); err == nil {
+							if tempY, err := strconv.Atoi(split[3]); err == nil && tempY > 2 && tempX > 2 {
 								framePoiChan <- u.PoiType{Category: u.MiddleXcorner, Point: u.PointType{X: tempX, Y: tempY, Angle: tempI}}
 							}
 						}
@@ -336,7 +344,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				}
 			}
 		}
-		sendChan <- "exit"
+		sendChan <- "exit\n"
 		stream.Close()
 		//active = false
 	}
