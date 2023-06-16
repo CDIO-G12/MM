@@ -99,7 +99,7 @@ func SetPixelDist(in float64) {
 	//log.Infoln("Updated pixel def: ", pixelDist.Definition)
 }
 
-func (p1 PointType) DistAndAngle(p2 PointType) (angle int, dist int) {
+func (p1 PointType) AngleAndDist(p2 PointType) (angle int, dist int) {
 	first := math.Pow(float64(p2.X-p1.X), 2)
 	second := math.Pow(float64(p2.Y-p1.Y), 2)
 	dist = int(math.Sqrt(first + second))

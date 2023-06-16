@@ -77,8 +77,8 @@ func (f *FrameType) updateGuideCorners(cornerNr int) {
 
 	offset := int(u.GuideCornerOffset * u.GetPixelDist())
 
-	angleLR, _ := f.MiddleX[1].DistAndAngle(f.MiddleX[0])
-	angleUD, _ := f.MiddleX[3].DistAndAngle(f.MiddleX[2])
+	angleLR, _ := f.MiddleX[1].AngleAndDist(f.MiddleX[0])
+	angleUD, _ := f.MiddleX[3].AngleAndDist(f.MiddleX[2])
 	angleUD -= 90
 
 	f.middleXAngle = u.Avg(angleLR, angleUD)

@@ -277,7 +277,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 							ball.X = tempX
 							ball.Y = tempY
 							current := u.CurrentPos.Get()
-							ang, dis := current.DistAndAngle(ball)
+							ang, dis := current.AngleAndDist(ball)
 							if dis < 50 {
 								if u.Abs(ang-current.Angle) < 15 {
 									continue

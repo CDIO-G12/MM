@@ -35,7 +35,7 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 			f.mu.RUnlock()
 
 			//find what side of the middlex the ball is on
-			ang, _ := f.MiddleXPoint().DistAndAngle(nextPos.Point)
+			ang, _ := f.MiddleXPoint().AngleAndDist(nextPos.Point)
 			ang -= middleXAngle
 
 			switch {
@@ -128,8 +128,8 @@ func (f *FrameType) CalculateWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType)
 
 	middleXPoint := f.MiddleXPoint()
 
-	angleX, distX := currentPos.DistAndAngle(middleXPoint)
-	angleB, distB := currentPos.DistAndAngle(nextPos.Point)
+	angleX, distX := currentPos.AngleAndDist(middleXPoint)
+	angleB, distB := currentPos.AngleAndDist(nextPos.Point)
 
 	safeDist := float64(100)
 
@@ -164,8 +164,8 @@ func (f *FrameType) calcWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType) {
 
 	middleXPoint := f.MiddleXPoint()
 
-	angleX, distX := currentPos.DistAndAngle(middleXPoint)
-	angleB, distB := currentPos.DistAndAngle(nextPos.Point)
+	angleX, distX := currentPos.AngleAndDist(middleXPoint)
+	angleB, distB := currentPos.AngleAndDist(nextPos.Point)
 
 	fmt.Println(distX, distB, angleX, angleB)
 
