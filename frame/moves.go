@@ -259,8 +259,10 @@ func (f *FrameType) WithinBorder(point u.PointType) bool {
 func (f *FrameType) calcWaypointsNew(current, next u.PointType) (export []u.PoiType) {
 	waypoints := []u.PoiType{}
 
+	fmt.Println("Current ", current, "Next ", next)
+
 	for i := 0; i < 5; i++ {
-		fmt.Println("Current ", current, "Next ", next, "I", i)
+		//fmt.Println("Current ", current, "Next ", next, "I", i)
 		current = f.checkIntersect(current, next)
 		if current.X == 0 {
 			break
@@ -278,6 +280,33 @@ func (f *FrameType) calcWaypointsNew(current, next u.PointType) (export []u.PoiT
 	return
 }
 
+func checkWithin(point, start, stop u.PointType, threshold int) bool {
+
+	var maxX, minX, maxY, minY int
+
+	if start.X > stop.X {
+		maxX = start.X
+		minX = stop.X
+	} else {
+		maxX = stop.X
+		minX = start.X
+	}
+
+	if start.Y > stop.Y {
+		maxY = start.Y
+		minY = stop.Y
+	} else {
+		maxY = stop.Y
+		minY = start.Y
+	}
+
+	withinX := (point.X > minX+threshold && point.X < maxX-threshold)
+	withinY := (point.Y > minY+threshold && point.Y < maxY-threshold)
+
+	return withinX || withinY
+
+}
+
 // check if line between current and next intersects middlex guidecorners
 func (f *FrameType) checkIntersect(current, next u.PointType) (waypoint u.PointType) {
 
@@ -288,10 +317,13 @@ func (f *FrameType) checkIntersect(current, next u.PointType) (waypoint u.PointT
 		return
 	}
 
-	intersectLR := (intersectLRPoint.X > f.guideCorners[0].X+5 && intersectLRPoint.X < f.guideCorners[1].X-5)
-	intersectUD := (intersectUDPoint.Y > f.guideCorners[2].Y+5 && intersectUDPoint.Y < f.guideCorners[3].Y-5)
+	intersectLR := checkWithin(intersectLRPoint, current, next, 5) && checkWithin(intersectLRPoint, f.guideCorners[0], f.guideCorners[1], 5)
+	intersectUD := checkWithin(intersectUDPoint, current, next, 5) && checkWithin(intersectUDPoint, f.guideCorners[2], f.guideCorners[3], 5)
 
 	fmt.Println("HER!!!!", current, next, intersectLRPoint, intersectUDPoint, intersectLR, intersectUD)
+
+	//fmt.Println("Waypoint: ", current, "Ball ", next, "LR Intersect: ", intersectLR, "UD Intersect: ", intersectUD, "LR Point: ", intersectLRPoint, "UD Point: ", intersectUDPoint)
+	//fmt.Println("middleX: ", f.MiddleXPoint())
 
 	// no intersections
 	if !intersectLR && !intersectUD {
@@ -300,8 +332,9 @@ func (f *FrameType) checkIntersect(current, next u.PointType) (waypoint u.PointT
 
 	// only intersect LR
 	if intersectLR && !intersectUD {
-		distL, _ := intersectLRPoint.Dist(f.guideCorners[0])
-		distR, _ := intersectLRPoint.Dist(f.guideCorners[1])
+		_, distL := intersectLRPoint.Dist(f.guideCorners[0])
+		_, distR := intersectLRPoint.Dist(f.guideCorners[1])
+
 		if distL < distR {
 			waypoint = f.guideCorners[0]
 		} else {
@@ -312,8 +345,9 @@ func (f *FrameType) checkIntersect(current, next u.PointType) (waypoint u.PointT
 
 	// only intersect UD
 	if !intersectLR && intersectUD {
-		distU, _ := intersectUDPoint.Dist(f.guideCorners[2])
-		distD, _ := intersectUDPoint.Dist(f.guideCorners[3])
+		_, distU := intersectUDPoint.Dist(f.guideCorners[2])
+		_, distD := intersectUDPoint.Dist(f.guideCorners[3])
+
 		if distU < distD {
 			waypoint = f.guideCorners[2]
 		} else {
@@ -322,22 +356,21 @@ func (f *FrameType) checkIntersect(current, next u.PointType) (waypoint u.PointT
 		return
 	}
 
-	fmt.Println("BOTH!!!!")
 	//intersects both - find closest
 
 	//find the best LR and UD guidecorner
 	gcLR := u.PointType{}
 	gcUD := u.PointType{}
 
-	_, distL := intersectLRPoint.Dist(f.guideCorners[0])
-	_, distR := intersectLRPoint.Dist(f.guideCorners[1])
+	_, distL := intersectLRPoint.Dist(u.PointType{X: f.guideCorners[0].X, Y: f.guideCorners[0].Y})
+	_, distR := intersectLRPoint.Dist(u.PointType{X: f.guideCorners[1].X, Y: f.guideCorners[1].Y})
 	if distL < distR {
 		gcLR = f.guideCorners[0]
 	} else {
 		gcLR = f.guideCorners[1]
 	}
-	_, distU := intersectUDPoint.Dist(f.guideCorners[2])
-	_, distD := intersectUDPoint.Dist(f.guideCorners[3])
+	_, distU := intersectUDPoint.Dist(u.PointType{X: f.guideCorners[2].X, Y: f.guideCorners[2].Y})
+	_, distD := intersectUDPoint.Dist(u.PointType{X: f.guideCorners[3].X, Y: f.guideCorners[3].Y})
 	if distU < distD {
 		gcUD = f.guideCorners[2]
 	} else {

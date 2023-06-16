@@ -10,7 +10,7 @@ const DistanceFromBall = 295
 const DistanceFromBallCorner = 350
 
 const VisualPort = 8888
-const GuideCornerOffset = 250 //in mm
+const GuideCornerOffset = 80 //in mm
 const VisualDebugLog = false
 const MmToGoal = 220
 

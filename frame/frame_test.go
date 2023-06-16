@@ -86,6 +86,43 @@ func TestFrameNoIntersect(t *testing.T) {
 
 }
 
+func TestFrameSpecialCase(t *testing.T) {
+	frame := setupFrame()
+
+	nextPos := u.PoiType{Point: u.PointType{X: 268, Y: 532}, Category: u.Ball}
+	u.CurrentPos.Set(u.PointType{X: 760, Y: 242})
+	frame.RateBall(&nextPos.Point)
+
+	moves := []u.PoiType{{Point: u.CurrentPos.Get(), Category: u.Start}}
+	moves = append(moves, frame.CreateMoves(nextPos)...)
+
+	t.Logf("m: %+v", moves)
+
+	frame.createTestImg(moves, "tSC", frame.MiddleX[:])
+	if !reflect.DeepEqual(moves, []u.PointType{{X: 100, Y: 240}, {X: 60, Y: 100}}) {
+		t.FailNow()
+	}
+
+}
+
+func TestFrameSpecialCase2(t *testing.T) {
+	frame := setupFrame()
+
+	nextPos := u.PoiType{Point: u.PointType{X: 650, Y: 550}, Category: u.Ball}
+	u.CurrentPos.Set(u.PointType{X: 700, Y: 600})
+	frame.RateBall(&nextPos.Point)
+
+	moves := []u.PoiType{{Point: u.CurrentPos.Get(), Category: u.Start}}
+	moves = append(moves, frame.CreateMoves(nextPos)...)
+
+	t.Logf("m: %+v", moves)
+
+	frame.createTestImg(moves, "tSC2", frame.MiddleX[:])
+	if !reflect.DeepEqual(moves, []u.PointType{{X: 100, Y: 240}, {X: 60, Y: 100}}) {
+		t.FailNow()
+	}
+}
+
 /*
 func createTestImg(points []u.PointType, name string) {
 	width := 250
