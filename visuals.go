@@ -105,6 +105,12 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				if currentBall.X == 0 {
 					continue
 				}
+				//if there is not much time left, we go to dump
+				if Timer.Left().Seconds() < 30 {
+					commandChan <- "goal"
+					continue
+				}
+
 				// if we have not seen the current ball in a long time
 				if time.Since(currentBallLastSeen).Seconds() > 15 {
 					commandChan <- "next"
