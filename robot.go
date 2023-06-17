@@ -224,6 +224,9 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					commandChan <- "nextIf"
 				}
 
+				// check if the move still makes sense
+				commandChan <- "check"
+
 				currentPos := u.CurrentPos.Get()
 				angle, dist := currentPos.AngleAndDist(nextGoto.Point)
 				dist = int(float64(dist) / u.GetPixelDist()) //convert from pixel to mm

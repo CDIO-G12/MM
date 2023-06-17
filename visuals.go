@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	f "MM/frame"
 	l "MM/log"
@@ -24,6 +25,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 	sortedBalls := []u.PointType{}
 	orangeBall := u.PointType{X: 0, Y: 0}
 	goalPos := u.PointType{X: 48, Y: 355}
+	currentBallLastSeen := time.Now()
 	currentBall := u.PointType{}
 	robotActive := false
 	robotWaiting := false
@@ -47,9 +49,6 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 
 			case "gone", "pause":
 				robotActive = false
-
-			case "cal":
-				poiChan <- u.PoiType{Category: u.Calibrate}
 
 			case "gotBall":
 				if sendOrange {
@@ -85,14 +84,31 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				sortedBalls, _ = frame.SortBalls(ballBuffer)
 
 				if len(sortedBalls) == 0 {
+					currentBall.X = 0
 					poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
 				} else {
-					currentBall = sortedBalls[0]
+					// Dont send the same ball twice
+					if currentBall == sortedBalls[0] && len(sortedBalls) > 1 {
+						currentBall = sortedBalls[1]
+					} else {
+						currentBall = sortedBalls[0]
+					}
 					poiChan <- u.PoiType{Point: currentBall, Category: u.Ball}
 				}
 
 			case "goal":
+				currentBall.X = 0
 				poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
+
+			case "check":
+				//check if current is not a ball
+				if currentBall.X == 0 {
+					continue
+				}
+				// if we have not seen the current ball in a long time
+				if time.Since(currentBallLastSeen).Seconds() > 15 {
+					commandChan <- "next"
+				}
 
 			default:
 				if strings.Contains(cmd, "check") {
@@ -199,6 +215,9 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						if tempY, err := strconv.Atoi(split[2]); err == nil {
 							orangeBall.X = tempX
 							orangeBall.Y = tempY
+							if currentBall == orangeBall {
+								currentBallLastSeen = time.Now()
+							}
 						}
 					}
 
@@ -276,6 +295,11 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						if tempY, err := strconv.Atoi(split[2]); err == nil {
 							ball.X = tempX
 							ball.Y = tempY
+
+							if currentBall == ball {
+								currentBallLastSeen = time.Now()
+							}
+
 							current := u.CurrentPos.Get()
 							ang, dis := current.AngleAndDist(ball)
 							if dis < 50 {

@@ -229,6 +229,9 @@ func (f *FrameType) GetGuideFrame() [4]u.PointType {
 // sort balls purely based on length to closest
 func (f *FrameType) SortBalls(balls []u.PointType) (sortedBalls []u.PointType, err error) {
 	currentPos := u.CurrentPos.Get()
+	//Start from the position of the grapper, not the position of the tracking points
+	currentPos = currentPos.CalcNextPos(int(u.DistanceFromBall * u.GetPixelDist()))
+
 	origLength := len(balls)
 	if origLength < 2 {
 		sortedBalls = balls

@@ -44,9 +44,9 @@ func main() {
 	go u.KeyGet(keyChan)
 
 	// channels between visuals and robot server
-	commandChan := make(chan string, 5)
-	poiChan := make(chan u.PoiType, 5)
-	framePoiChan := make(chan u.PoiType, 5)
+	commandChan := make(chan string, 15)
+	poiChan := make(chan u.PoiType, 15)
+	framePoiChan := make(chan u.PoiType, 15)
 	frame := f.NewFrame(framePoiChan)
 	go initVisualServer(frame, poiChan, framePoiChan, commandChan)
 	go initRobotServer(frame, keyChan, poiChan, commandChan)
@@ -63,6 +63,8 @@ func main() {
 			log.Infoln("Time left: ", Timer.Left())
 		case "r":
 			log.Infoln("Go routines: ", runtime.NumGoroutine())
+		case "cal":
+			poiChan <- u.PoiType{Category: u.Calibrate}
 		case "exit":
 			pprof.StopCPUProfile()
 			log.Fatal("Exiting")
