@@ -3,6 +3,7 @@ package frame
 import (
 	u "MM/utils"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 )
@@ -24,11 +25,47 @@ func setupFrame() *FrameType {
 	poiChan <- u.PoiType{Point: u.PointType{X: (980/2 + middleXSize), Y: (722 / 2), Angle: 1}, Category: u.MiddleXcorner}
 	poiChan <- u.PoiType{Point: u.PointType{X: (980 / 2), Y: (720/2 - middleXSize), Angle: 2}, Category: u.MiddleXcorner}
 	poiChan <- u.PoiType{Point: u.PointType{X: (982 / 2), Y: (720/2 + middleXSize), Angle: 3}, Category: u.MiddleXcorner}
+
 	poiChan <- u.PoiType{Point: u.PointType{X: (980/2 - middleXSize), Y: (720 / 2), Angle: 0}, Category: u.MiddleXcorner}
 	poiChan <- u.PoiType{Point: u.PointType{X: (980/2 + middleXSize), Y: (722 / 2), Angle: 1}, Category: u.MiddleXcorner}
 	poiChan <- u.PoiType{Point: u.PointType{X: (980 / 2), Y: (720/2 - middleXSize), Angle: 2}, Category: u.MiddleXcorner}
 	poiChan <- u.PoiType{Point: u.PointType{X: (982 / 2), Y: (720/2 + middleXSize), Angle: 3}, Category: u.MiddleXcorner}
+
 	time.Sleep(time.Millisecond)
+
+	u.CurrentPos.Set(u.PointType{X: 380, Y: 600})
+
+	return frame
+}
+
+func setupAngeledFrame() *FrameType {
+
+	poiChan := make(chan u.PoiType)
+	frame := NewFrame(poiChan)
+
+	width := 980
+	height := 720
+
+	middleXCenter := u.PointType{X: width / 2, Y: height / 2, Angle: 20}
+	middleXSize := 80
+
+	poiChan <- u.PoiType{Point: u.PointType{X: 0, Y: 0, Angle: 0}, Category: u.Corner}
+	poiChan <- u.PoiType{Point: u.PointType{X: 980, Y: 0, Angle: 1}, Category: u.Corner}
+	poiChan <- u.PoiType{Point: u.PointType{X: 980, Y: 720, Angle: 2}, Category: u.Corner}
+	poiChan <- u.PoiType{Point: u.PointType{X: 0, Y: 720, Angle: 3}, Category: u.Corner}
+
+	angleRad := math.Pi / 180 * float64(middleXCenter.Angle)
+
+	// Place middleX corners in the middle of the field rotated by the given angle
+	poiChan <- u.PoiType{Point: u.PointType{X: middleXCenter.X + int(math.Cos(angleRad)*float64(middleXSize)), Y: middleXCenter.Y + int(math.Sin(angleRad)*float64(middleXSize)), Angle: 0}, Category: u.MiddleXcorner}
+	poiChan <- u.PoiType{Point: u.PointType{X: middleXCenter.X - int(math.Cos(angleRad)*float64(middleXSize)), Y: middleXCenter.Y - int(math.Sin(angleRad)*float64(middleXSize)), Angle: 1}, Category: u.MiddleXcorner}
+	poiChan <- u.PoiType{Point: u.PointType{X: middleXCenter.X - int(math.Sin(angleRad)*float64(middleXSize)), Y: middleXCenter.Y + int(math.Cos(angleRad)*float64(middleXSize)), Angle: 2}, Category: u.MiddleXcorner}
+	poiChan <- u.PoiType{Point: u.PointType{X: middleXCenter.X + int(math.Sin(angleRad)*float64(middleXSize)), Y: middleXCenter.Y - int(math.Cos(angleRad)*float64(middleXSize)), Angle: 3}, Category: u.MiddleXcorner}
+
+	poiChan <- u.PoiType{Point: u.PointType{X: middleXCenter.X + int(math.Cos(angleRad)*float64(middleXSize)), Y: middleXCenter.Y + int(math.Sin(angleRad)*float64(middleXSize)), Angle: 0}, Category: u.MiddleXcorner}
+	poiChan <- u.PoiType{Point: u.PointType{X: middleXCenter.X - int(math.Cos(angleRad)*float64(middleXSize)), Y: middleXCenter.Y - int(math.Sin(angleRad)*float64(middleXSize)), Angle: 1}, Category: u.MiddleXcorner}
+	poiChan <- u.PoiType{Point: u.PointType{X: middleXCenter.X - int(math.Sin(angleRad)*float64(middleXSize)), Y: middleXCenter.Y + int(math.Cos(angleRad)*float64(middleXSize)), Angle: 2}, Category: u.MiddleXcorner}
+	poiChan <- u.PoiType{Point: u.PointType{X: middleXCenter.X + int(math.Sin(angleRad)*float64(middleXSize)), Y: middleXCenter.Y - int(math.Cos(angleRad)*float64(middleXSize)), Angle: 3}, Category: u.MiddleXcorner}
 
 	u.CurrentPos.Set(u.PointType{X: 380, Y: 600})
 
@@ -156,6 +193,26 @@ func TestFrameMiddleXBall(t *testing.T) {
 	}
 	if fmt.Sprint(moves) != "[{{510 390 40} ball} {{767 647 225} precise waypoint} {{819 699 225} waypoint} {{700 600 0} start}]" {
 		t.FailNow()
+	}
+
+}
+
+func TestAngledMiddleXDoubleIntersection(t *testing.T) {
+	frame := setupAngeledFrame()
+
+	nextPos := u.PoiType{Point: u.PointType{X: 380, Y: 200}, Category: u.Ball}
+	u.CurrentPos.Set(u.PointType{X: 600, Y: 550})
+	frame.RateBall(&nextPos.Point)
+
+	moves := frame.CreateMoves(nextPos)
+	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
+
+	t.Log("m:", moves)
+
+	fmt.Println("m:", moves)
+
+	if print {
+		frame.createTestImg(moves, t.Name())
 	}
 
 }
