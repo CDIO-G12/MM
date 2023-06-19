@@ -6,11 +6,11 @@ const wifi = false
 const RobotPort = 9999
 const BallCounterMax = 6
 const TrackingDistance = 185
-const DistanceFromBall = 295
-const DistanceFromBallCorner = 360
-const DistanceFromBallMiddleX = 365
+const DistanceFromBall = 290
+const DistanceFromBallCorner = 350
+const DistanceFromBallMiddleX = 220
 
-const TimeBetweenMovesMS = 300
+const TimeBetweenMovesMS = 200
 const SecondsBeforeForgetBall = 2
 const WaypointIgnoreDistance = 100
 

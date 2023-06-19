@@ -52,9 +52,9 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 
 			waypoint := nextPos
 			waypoint.Point.Angle = middleXAngle + ang
-			lastAppended = u.PoiType{Point: waypoint.Point.CalcNextPos(u.DistanceFromBallMiddleX), Category: u.PreciseWayPoint}
+			lastAppended = u.PoiType{Point: waypoint.Point.CalcNextPos(int(u.GetPixelDist() * u.DistanceFromBallMiddleX)), Category: u.PreciseWayPoint}
 			directions = append(directions, lastAppended)
-			lastAppended = u.PoiType{Point: waypoint.Point.CalcNextPos(int(u.DistanceFromBallMiddleX * 1.2)), Category: u.WayPoint}
+			lastAppended = u.PoiType{Point: waypoint.Point.CalcNextPos(int(u.GetPixelDist() * u.DistanceFromBallMiddleX * 1.2)), Category: u.WayPoint}
 			directions = append(directions, lastAppended)
 
 			//If the ball is in the corner
@@ -168,31 +168,6 @@ func (f *FrameType) CalculateWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType)
 	return
 }
 
-func (f *FrameType) calcWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType) {
-
-	currentPos := u.CurrentPos.Get()
-
-	middleXPoint := f.MiddleXPoint()
-
-	angleX, distX := currentPos.AngleAndDist(middleXPoint)
-	angleB, distB := currentPos.AngleAndDist(nextPos.Point)
-
-	fmt.Println(distX, distB, angleX, angleB)
-
-	if distB < distX {
-		return
-	}
-
-	if ((angleX + 10) < angleB) && ((angleX - 10) > angleB) {
-		return
-	}
-
-	WayPoints = append(WayPoints, u.PoiType{Point: f.findClosestGuidePosition(currentPos), Category: u.WayPoint})
-	WayPoints = append(WayPoints, u.PoiType{Point: f.findClosestGuidePosition(nextPos.Point), Category: u.WayPoint})
-
-	return
-}
-
 func (f *FrameType) FindThreeClosestXPoints() (points []u.PointType) {
 
 	currentPos := u.CurrentPos.Get()
@@ -232,6 +207,7 @@ func (f *FrameType) RateBall(ball *u.PointType) {
 	pd := u.GetPixelDist()
 
 	dist := f.MiddleXPoint().Dist(*ball)
+	fmt.Println(f.MiddleXPoint(), dist)
 	if dist < int(middleXDist*pd) {
 		ball.Angle = u.RatingMiddleX
 		return
@@ -281,8 +257,6 @@ func (f *FrameType) RateBall(ball *u.PointType) {
 	} else if min < hardDist {
 		ball.Angle = u.RatingHard
 	}
-
-	return
 }
 
 func (f *FrameType) WithinBorder(point u.PointType) bool {
@@ -417,8 +391,8 @@ func (f *FrameType) checkIntersect(current, next u.PointType) (waypoint u.PointT
 	//intersects both - find closest
 
 	//find the best LR and UD guidecorner
-	gcLR := u.PointType{}
-	gcUD := u.PointType{}
+	var gcLR u.PointType
+	var gcUD u.PointType
 
 	distL := intersectLRPoint.Dist(u.PointType{X: f.guideCorners[0].X, Y: f.guideCorners[0].Y})
 	distR := intersectLRPoint.Dist(u.PointType{X: f.guideCorners[1].X, Y: f.guideCorners[1].Y})

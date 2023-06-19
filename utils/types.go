@@ -19,6 +19,7 @@ const (
 	Start
 	Found
 	NotFound
+	NewBall
 	Calibrate
 )
 

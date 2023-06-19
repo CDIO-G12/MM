@@ -82,7 +82,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 
 					case u.Start:
 						if getState() == stateEmergency {
-							setState(stateNextMove)
+							//setState(stateNextMove)
 						}
 
 					case u.Calibrate:
@@ -96,6 +96,9 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						} else {
 							newBallWaiting = true
 						}
+
+					case u.NewBall:
+						newBallWaiting = true
 
 					case u.Found:
 						setState(statePickup)
@@ -164,12 +167,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					time.Sleep(u.TimeBetweenMovesMS * time.Millisecond)
 					moving = false
 					if getState() != stateEmergency {
-						if newBallWaiting {
-							newBallWaiting = false
-							setState(stateNextPosQueue)
-						} else {
-							setState(stateNextMove)
-						}
+						setState(stateNextMove)
 					}
 				case strings.HasPrefix(recieved, "m"):
 					moving = true
@@ -242,8 +240,13 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					commandChan <- "nextIf"
 				}
 
+				if newBallWaiting {
+					newBallWaiting = false
+					commandChan <- "next"
+				}
+
 				// check if the move still makes sense
-				commandChan <- "check"
+				//commandChan <- "check"
 
 				currentPos := u.CurrentPos.Get()
 				angle, dist := currentPos.AngleAndDist(nextGoto.Point)
@@ -303,7 +306,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					if !success {
 						break loop
 					}
-				} else if dist < 0 {
+				} else if dist < -3 {
 					success := sendToBot(conn, []byte{[]byte("B")[0], byte(-dist + 10)})
 					if !success {
 						break loop

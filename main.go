@@ -27,7 +27,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		pprof.StartCPUProfile(f)
+		err = pprof.StartCPUProfile(f)
+		log.Should(err)
 		defer pprof.StopCPUProfile()
 	}
 

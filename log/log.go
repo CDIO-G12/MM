@@ -40,10 +40,14 @@ func (l Log_type) runner() {
 	for {
 		m := <-l.ch
 		if l.conn == nil {
-			close(l.ch)
+			//close(l.ch)
 			return
 		}
-		l.conn.Write([]byte(m))
+		_, err := l.conn.Write([]byte(m))
+		if err != nil {
+			//close(l.ch)
+			return
+		}
 	}
 }
 
