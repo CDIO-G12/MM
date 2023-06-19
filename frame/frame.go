@@ -275,14 +275,15 @@ func (f *FrameType) SortBalls(balls []u.PointType) (sortedBalls []u.PointType, e
 	*/
 
 	for i := 0; i < origLength; i++ {
-		minDist := 99999
+		minDist := 999999
 		minI := 0
 		for j, v := range balls {
 			f.RateBall(&v)
 			moves := f.CreateMoves(u.PoiType{Point: v, Category: u.Ball})
 			dist := 0
 			pos := currentPos
-			for _, move := range moves {
+			for len(moves) > 0 {
+				move := u.Pop(&moves)
 				dist += pos.Dist(move.Point)
 				pos = move.Point
 			}
