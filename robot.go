@@ -82,7 +82,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 
 					case u.Start:
 						if getState() == stateEmergency {
-							//setState(stateNextMove)
+							setState(stateNextMove)
 						}
 
 					case u.Calibrate:

@@ -227,7 +227,7 @@ func (f *FrameType) GetGuideFrame() [4]u.PointType {
 }
 
 // sort balls purely based on length to closest
-func (f *FrameType) SortBalls(balls []u.PointType) (sortedBalls []u.PointType, err error) {
+func (f *FrameType) SortBallsOld(balls []u.PointType) (sortedBalls []u.PointType, err error) {
 	currentPos := u.CurrentPos.Get()
 	//Start from the position of the grapper, not the position of the tracking points
 	currentPos = currentPos.CalcNextPos(int(u.DistanceFromBall * u.GetPixelDist()))
@@ -245,6 +245,46 @@ func (f *FrameType) SortBalls(balls []u.PointType) (sortedBalls []u.PointType, e
 			len := currentPos.Dist(v)
 			if len < minDist {
 				minDist = len
+				minI = j
+			}
+		}
+		sortedBalls = append(sortedBalls, balls[minI])
+		currentPos = balls[minI]
+		balls = u.Remove(balls, minI)
+	}
+	return
+}
+
+// sort balls purely based on length to closest
+func (f *FrameType) SortBalls(balls []u.PointType) (sortedBalls []u.PointType, err error) {
+	currentPos := u.CurrentPos.Get()
+	//Start from the position of the grapper, not the position of the tracking points
+	//currentPos = currentPos.CalcNextPos(int(u.DistanceFromBall * u.GetPixelDist()))
+
+	origLength := len(balls)
+	if origLength < 2 {
+		sortedBalls = balls
+		return
+	}
+
+	for i := 0; i < origLength; i++ {
+		minDist := 99999
+		minI := 0
+		for j, v := range balls {
+			f.RateBall(&v)
+			moves := f.CreateMoves(u.PoiType{Point: v, Category: u.Ball})
+			dist := 0
+			pos := currentPos
+			for _, move := range moves {
+				dist += pos.Dist(move.Point)
+				pos = move.Point
+			}
+			// if it is not an easy ball, we add a factor
+			if v.Angle >= u.RatingCorner {
+				dist += v.Angle * 1000
+			}
+			if dist < minDist {
+				minDist = dist
 				minI = j
 			}
 		}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	ct "MM/conn_testers"
 	f "MM/frame"
 	u "MM/utils"
 	"flag"
@@ -9,8 +8,6 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
-	"strings"
-	"time"
 
 	log "github.com/s00500/env_logger"
 )
@@ -73,35 +70,5 @@ func main() {
 			log.Infof("Got '%s' from terminal", buf)
 			commandChan <- buf
 		}
-	}
-}
-
-func robotFaker() {
-	robotIn := make(chan string)
-	robotOut := make(chan string)
-	time.Sleep(5 * time.Second)
-	go ct.RobotClient(robotIn, robotOut)
-	robotIn <- "rd"
-	for {
-		out := <-robotOut
-		fmt.Printf("Robot got: %c, %d\n", out[0], int(out[1]))
-		time.Sleep(1 * time.Second)
-		switch {
-
-		case strings.Contains(out, "D"):
-			robotIn <- "dc"
-			continue
-
-		case strings.Contains(out, "S"), strings.Contains(out, "T"):
-			robotIn <- "gb"
-			//visChan <- currentPosToString(currentPos)
-			continue
-		}
-
-		//visChan <- currentPosToString(currentPos)
-		time.Sleep(10 * time.Millisecond)
-
-		robotIn <- "fm"
-
 	}
 }
