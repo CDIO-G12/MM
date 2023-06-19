@@ -76,8 +76,8 @@ type SafePointType struct {
 var CurrentPos = SafePointType{}
 
 func (p *SafePointType) Get() PointType {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	return p.point
 }
 

@@ -30,7 +30,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 	robotActive := false
 	robotWaiting := false
 	lastCorners := [4]u.PointType{}
-	sendChan := make(chan string, 15)
+	sendChan := make(chan string, 50)
 	sendOrange := false
 
 	visLog := l.Init_log("Visuals", u.VisualPort-1)
@@ -52,7 +52,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 
 			case "gotBall":
 				if sendOrange {
-					sendChan <- "no\n"
+					safeChannelSend(sendChan, "no\n")
 				}
 
 			case "nextIf":
@@ -106,14 +106,14 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					continue
 				}
 				//if there is not much time left, we go to dump
-				if Timer.Left().Seconds() < 30 {
-					commandChan <- "goal"
+				if Timer.Left().Seconds() < 30 && u.DumpAtThirty {
+					safeChannelSend(commandChan, "goal")
 					continue
 				}
 
 				// if we have not seen the current ball in a long time
-				if time.Since(currentBallLastSeen).Seconds() > 15 {
-					commandChan <- "next"
+				if time.Since(currentBallLastSeen).Seconds() > u.SecondsBeforeForgetBall {
+					safeChannelSend(commandChan, "next")
 				}
 
 			default:
@@ -132,7 +132,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					continue
 				}
 
-				sendChan <- cmd
+				safeChannelSend(sendChan, cmd)
 			}
 		}
 	}()
@@ -172,6 +172,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					break
 				}
 			}
+			close(sendChan)
 		}()
 
 		stream := s.Init_streamer()
@@ -186,15 +187,12 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				conn.Close()
 				break
 			}
-			if rLen > 16000 {
-				//pass on video to udp stream.
-				stream.Send_data(buffer[0:rLen])
-				continue
-			}
 
 			// Convert the recieved to string
 			recString := string(buffer[0:rLen])
 			outerSplit := strings.Split(recString, "\n")
+			currentPosLocal := u.CurrentPos.Get()
+			//visLog.Log("Recieved: ", recString)
 
 			for _, recString := range outerSplit {
 
@@ -240,9 +238,9 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 								}
 								current.Angle = u.DegreeAdd(tempR, -90)
 
-								if !u.CurrentPos.Get().IsClose(current, 5) {
-									visLog.Log("Updated currentpos: ", current)
+								if !currentPosLocal.IsClose(current, 5) {
 								}
+								visLog.Log("Updated currentpos: ", current)
 								u.CurrentPos.Set(current)
 
 							}
@@ -275,7 +273,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						visLog.Log("Computed balls: ", sortedBalls)
 
 						for i, v := range sortedBalls {
-							sendChan <- fmt.Sprintf("b/%d/%d/%d\n", i+1, v.X, v.Y)
+							safeChannelSend(sendChan, fmt.Sprintf("b/%d/%d/%d\n", i+1, v.X, v.Y))
 						}
 
 						/*if !u.InArray(nextBall, sortedBalls) && !nextBall.IsClose(orangeBall, 4) {
@@ -306,10 +304,9 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 								currentBallLastSeen = time.Now()
 							}
 
-							current := u.CurrentPos.Get()
-							ang, dis := current.AngleAndDist(ball)
+							ang, dis := currentPosLocal.AngleAndDist(ball)
 							if dis < 50 {
-								if u.Abs(ang-current.Angle) < 15 {
+								if u.Abs(ang-currentPosLocal.Angle) < 15 {
 									continue
 								}
 							}
@@ -324,15 +321,15 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 								corner := u.PointType{X: tempX, Y: tempY, Angle: tempI}
 								if lastCorners[tempI] != corner {
 									lastCorners[tempI] = corner
-									framePoiChan <- u.PoiType{Category: u.Corner, Point: corner}
+									safeChannelSend(framePoiChan, u.PoiType{Category: u.Corner, Point: corner})
 
-									if tempI == 3 {
+									if tempI == 3 && false {
 										guide := frame.GetGuideFrame()
 										send := ""
 										for i, v := range guide {
 											send += fmt.Sprintf("gc/%d/%d/%d\n", i, v.X, v.Y)
 										}
-										sendChan <- send
+										safeChannelSend(sendChan, send)
 									}
 								}
 							}
@@ -343,7 +340,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					if tempI, err := strconv.Atoi(split[1]); err == nil && tempI < 4 && len(split) > 3 {
 						if tempX, err := strconv.Atoi(split[2]); err == nil {
 							if tempY, err := strconv.Atoi(split[3]); err == nil && tempY > 2 && tempX > 2 {
-								framePoiChan <- u.PoiType{Category: u.MiddleXcorner, Point: u.PointType{X: tempX, Y: tempY, Angle: tempI}}
+								safeChannelSend(framePoiChan, u.PoiType{Category: u.MiddleXcorner, Point: u.PointType{X: tempX, Y: tempY, Angle: tempI}})
 							}
 						}
 					}
@@ -368,15 +365,23 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 							tempX += int(u.MmToGoal * u.GetPixelDist())
 							goalPos.X = tempX
 							goalPos.Y = tempY
-							framePoiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
+							safeChannelSend(framePoiChan, u.PoiType{Point: goalPos, Category: u.Goal})
 						}
 					}
 				}
 			}
 		}
-		sendChan <- "exit\n"
+		safeChannelSend(sendChan, "exit\n")
 		stream.Close()
 		//active = false
+	}
+}
+
+func safeChannelSend[t any](ch chan<- t, command t) {
+	select {
+	case ch <- command:
+	default:
+		log.Error("Channel full or closed on command: ", command)
 	}
 }
 

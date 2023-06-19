@@ -46,7 +46,7 @@ func main() {
 	// channels between visuals and robot server
 	commandChan := make(chan string, 15)
 	poiChan := make(chan u.PoiType, 15)
-	framePoiChan := make(chan u.PoiType, 15)
+	framePoiChan := make(chan u.PoiType, 50)
 	frame := f.NewFrame(framePoiChan)
 	go initVisualServer(frame, poiChan, framePoiChan, commandChan)
 	go initRobotServer(frame, keyChan, poiChan, commandChan)

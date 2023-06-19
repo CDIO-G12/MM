@@ -29,7 +29,7 @@ func Init_log(name string, port uint16) (l Log_type) {
 	}
 	l.conn = conn
 	log.Info(name, " logging on ", address)
-	l.ch = make(chan string, 10)
+	l.ch = make(chan string, 100)
 
 	go l.runner()
 
@@ -40,6 +40,7 @@ func (l Log_type) runner() {
 	for {
 		m := <-l.ch
 		if l.conn == nil {
+			close(l.ch)
 			return
 		}
 		l.conn.Write([]byte(m))
@@ -55,5 +56,5 @@ func (l Log_type) Logf(format string, a ...any) {
 }
 
 func (l Log_type) Info(message ...any) {
-	l.ch <- fmt.Sprint(message...)
+	l.Log(message...)
 }

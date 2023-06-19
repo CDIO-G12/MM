@@ -209,12 +209,12 @@ func TestAngledMiddleXDoubleIntersection(t *testing.T) {
 
 	t.Log("m:", moves)
 
-	fmt.Println("m:", moves)
-
 	if print {
 		frame.createTestImg(moves, t.Name())
 	}
-
+	if fmt.Sprint(moves) != "[{{380 200 0} ball} {{298 290 2} waypoint} {{420 551 1} waypoint} {{600 550 0} start}]" {
+		t.FailNow()
+	}
 }
 
 type testType struct {

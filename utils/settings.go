@@ -10,11 +10,15 @@ const DistanceFromBall = 295
 const DistanceFromBallCorner = 360
 const DistanceFromBallMiddleX = 365
 
+const TimeBetweenMovesMS = 300
+const SecondsBeforeForgetBall = 2
+
 const VisualPort = 8888
 const GuideCornerOffset = 250 //in mm
 const VisualDebugLog = false
 const MmToGoal = 220
 
+const DumpAtThirty = false
 const AutoGo = true
 
 const keyGetterPort = 10023

@@ -3,6 +3,7 @@ package frame
 import (
 	u "MM/utils"
 	"fmt"
+	"log"
 	"math"
 )
 
@@ -30,9 +31,9 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 	if nextPos.Category == u.Ball {
 		//If the ball is in the middleX position
 		if nextPos.Point.Angle >= u.RatingMiddleX {
-			f.mu.RLock()
+			f.mu.Lock()
 			middleXAngle := f.middleXAngle
-			f.mu.RUnlock()
+			f.mu.Unlock()
 
 			//find what side of the middlex the ball is on
 			ang, _ := f.MiddleXPoint().AngleAndDist(nextPos.Point)
@@ -105,7 +106,6 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 	}
 
 	directions = append(directions, f.calcWaypointsNew(currentPos, lastAppended.Point)...)
-
 	closeToPoint := -1
 	for i, point := range directions {
 		if point.Point.IsClose(currentPos, 10) {
@@ -117,7 +117,9 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 			break
 		}
 	}
+
 	if closeToPoint >= 0 {
+		log.Println("close to point ", closeToPoint)
 		if len(directions) > closeToPoint {
 			if len(directions) > 0 {
 				directions = directions[:closeToPoint]
@@ -227,8 +229,6 @@ const middleXAngleDist = 150
 const middleXEasyDist = 50
 
 func (f *FrameType) RateBall(ball *u.PointType) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
 	pd := u.GetPixelDist()
 
 	dist := f.MiddleXPoint().Dist(*ball)
@@ -236,6 +236,9 @@ func (f *FrameType) RateBall(ball *u.PointType) {
 		ball.Angle = u.RatingMiddleX
 		return
 	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
 	for _, corner := range f.MiddleX {
 		dist := corner.Dist(*ball)
@@ -283,10 +286,10 @@ func (f *FrameType) RateBall(ball *u.PointType) {
 }
 
 func (f *FrameType) WithinBorder(point u.PointType) bool {
-	f.mu.RLock()
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	for _, v := range f.Corners {
 		if v.X == 0 || v.Y == 0 {
-			f.mu.RUnlock()
 			return true
 		}
 	}
@@ -294,7 +297,6 @@ func (f *FrameType) WithinBorder(point u.PointType) bool {
 	left := u.Avg(f.Corners[0].X, f.Corners[3].X)
 	down := u.Avg(f.Corners[2].Y, f.Corners[3].Y)
 	right := u.Avg(f.Corners[1].X, f.Corners[2].X)
-	f.mu.RUnlock()
 
 	if point.Y <= up {
 		return false
@@ -362,8 +364,8 @@ func checkWithin(point, start, stop u.PointType, threshold int) bool {
 
 // check if line between current and next intersects middlex guidecorners
 func (f *FrameType) checkIntersect(current, next u.PointType) (waypoint u.PointType) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
 	intersectLRPoint := CalculateIntersection(current, next, f.guideCorners[0], f.guideCorners[1])
 	intersectUDPoint := CalculateIntersection(current, next, f.guideCorners[2], f.guideCorners[3])

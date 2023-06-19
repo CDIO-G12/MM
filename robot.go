@@ -59,6 +59,8 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 
 		nextPos := u.PoiType{}
 		ballCounter := 0
+		moving := false
+		newBallWaiting := false
 
 		//This helps for ending routines
 		ctx, cancel := context.WithCancel(context.Background())
@@ -89,7 +91,11 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					case u.Ball, u.Goal: //goal or ball
 						nextPos = poi
 						log.Infoln("Got next pos: ", poi)
-						setState(stateNextPosQueue)
+						if !moving {
+							setState(stateNextPosQueue)
+						} else {
+							newBallWaiting = true
+						}
 
 					case u.Found:
 						setState(statePickup)
@@ -133,13 +139,13 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 
 				// Check what kind of command is recieved, and handle them
 				switch {
-				case strings.Contains(recieved, "rd"): // ready - the initial command send, when the robot is ready to move
+				case strings.HasPrefix(recieved, "rd"): // ready - the initial command send, when the robot is ready to move
 					if u.AutoGo {
 						commandChan <- "go" // Send the first ball
 					}
 
 					log.Infoln("Robot ready!")
-				case strings.Contains(recieved, "gb"): // got ball - is send when the robot got a ball
+				case strings.HasPrefix(recieved, "gb"): // got ball - is send when the robot got a ball
 					// Count the ball, and keep track of how many balls are stored at the moment
 					ballCounter++
 					commandChan <- "gotBall" // got balls
@@ -150,16 +156,25 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					}
 					log.Infof("Got Ball - time left %d%%", Timer.LeftPercent())
 
-				case strings.Contains(recieved, "pb"): // pickedup ball
+				case strings.HasPrefix(recieved, "pb"): // pickedup ball
 					commandChan <- "next"
 
-				case strings.Contains(recieved, "fm"): // finished move - is sent when the robot has done a move, and is waiting for next instruction
+				case strings.HasPrefix(recieved, "fm"): // finished move - is sent when the robot has done a move, and is waiting for next instruction
 					// Every time we are done with a move, we ask for the current position, and runs the next move
-					time.Sleep(200 * time.Millisecond)
+					time.Sleep(u.TimeBetweenMovesMS * time.Millisecond)
+					moving = false
 					if getState() != stateEmergency {
-						setState(stateNextMove)
+						if newBallWaiting {
+							newBallWaiting = false
+							setState(stateNextPosQueue)
+						} else {
+							setState(stateNextMove)
+						}
 					}
-				case strings.Contains(recieved, "fd"): // finish dump
+				case strings.HasPrefix(recieved, "m"):
+					moving = true
+
+				case strings.HasPrefix(recieved, "fd"): // finish dump
 					ballCounter = 0
 					log.Infoln("Dumped at: ", Timer.Now())
 					commandChan <- "next"
@@ -193,6 +208,9 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				}
 				commandChan <- fmt.Sprintf("%d/%d/200/200/200\n", nextPos.Point.X, nextPos.Point.Y)
 				positionQueue = frame.CreateMoves(nextPos)
+				if len(positionQueue) == 0 {
+					fmt.Println("Houston. We have a problem.")
+				}
 				log.Info("Got position queue", positionQueue)
 				send := ""
 				for i, pos := range positionQueue {
@@ -219,8 +237,8 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					setState(stateNextPos)
 					continue
 				}
-				// check if new ball have appeared
-				if nextPos.Category == u.Goal && ballCounter < u.BallCounterMax {
+				// check if new ball have appeared on the way to goal
+				if nextPos.Category == u.Goal && ballCounter < u.BallCounterMax && Timer.Left().Seconds() > 30 {
 					commandChan <- "nextIf"
 				}
 
@@ -249,12 +267,12 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					continue
 					// if the angle is not very close to the current angle, or the robot is further away while the angle is not sort of correct, we send a rotation command
 				}
-				if dist < 12 && nextGoto.Category == u.Goal {
+				if dist < 30 && nextGoto.Category == u.Goal {
 					setState(stateDump)
 					continue
 				}
-				fmt.Println(AbsRotation(angle - currentPos.Angle))
-				if (AbsRotation(angle-currentPos.Angle) > 100) && dist < 100 && dist > 10 {
+				//fmt.Println(AbsRotation(angle - currentPos.Angle))
+				if (AbsRotation(angle-currentPos.Angle) > 120) && dist < 200 && dist > 10 {
 					success := sendToBot(conn, []byte{[]byte("B")[0], byte(dist + 5)})
 					if !success {
 						break loop
@@ -277,7 +295,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 
 					// if the distance is far away, we send a course forward
 				} else if dist > 200 {
-					dist = dist / 10
+					dist /= 10
 					if dist > 255 {
 						dist = 255
 					}

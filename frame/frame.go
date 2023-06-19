@@ -18,7 +18,7 @@ type FrameType struct {
 	MiddleX      [4]u.PointType
 	middleXAngle int
 	Goal         u.PointType
-	mu           sync.RWMutex
+	mu           sync.Mutex
 
 	guideCorners [4]u.PointType
 }
@@ -61,9 +61,9 @@ func NewFrame(poiChan <-chan u.PoiType) *FrameType {
 	go func() {
 		for {
 			time.Sleep(1 * time.Second)
-			frame.mu.RLock()
+			//frame.mu.Lock()
 			frame.createTestImg([]u.PoiType{}, "frame")
-			frame.mu.RUnlock()
+			//frame.mu.Unlock()
 		}
 	}()
 
@@ -106,10 +106,10 @@ func (f *FrameType) updateGuideCorners(cornerNr int) {
 }
 
 func (f *FrameType) MiddleXPoint() u.PointType {
-	f.mu.RLock()
+	f.mu.Lock()
 	sumX := f.MiddleX[0].X + f.MiddleX[1].X + f.MiddleX[2].X + f.MiddleX[3].X
 	sumY := f.MiddleX[0].Y + f.MiddleX[1].Y + f.MiddleX[2].Y + f.MiddleX[3].Y
-	f.mu.RUnlock()
+	f.mu.Unlock()
 
 	middleX := sumX / 4
 	middleY := sumY / 4
@@ -118,13 +118,13 @@ func (f *FrameType) MiddleXPoint() u.PointType {
 }
 
 func (f *FrameType) findClosestGuidePosition(position u.PointType) u.PointType {
-	f.mu.RLock()
+	f.mu.Lock()
 	up := u.Avg(f.guideCorners[0].Y, f.guideCorners[1].Y)
 	left := u.Avg(f.guideCorners[0].X, f.guideCorners[3].X)
 	down := u.Avg(f.guideCorners[2].Y, f.guideCorners[3].Y)
 	right := u.Avg(f.guideCorners[1].X, f.guideCorners[2].X)
+	f.mu.Unlock()
 
-	f.mu.RUnlock()
 	bordersDist := []int{u.Abs(position.Y - up), u.Abs(position.X - left), u.Abs(position.Y - down), u.Abs(position.X - right)}
 	//borders := []int{up, left, down, right}
 	min := 99999
@@ -221,8 +221,8 @@ func (f *FrameType) drawCircle(img *image.RGBA, center u.PointType, radius int, 
 }
 
 func (f *FrameType) GetGuideFrame() [4]u.PointType {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return f.guideCorners
 }
 
