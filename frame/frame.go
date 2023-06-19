@@ -267,6 +267,13 @@ func (f *FrameType) SortBalls(balls []u.PointType) (sortedBalls []u.PointType, e
 		return
 	}
 
+	/*
+		//uncomment to only sort the 5 closest balls
+		if origLength > 5 {
+			origLength = 5
+		}
+	*/
+
 	for i := 0; i < origLength; i++ {
 		minDist := 99999
 		minI := 0
