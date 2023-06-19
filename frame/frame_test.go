@@ -197,6 +197,48 @@ func TestFrameMiddleXBall(t *testing.T) {
 
 }
 
+func TestFrameMiddleXBall2(t *testing.T) {
+	frame := setupFrame()
+
+	//Place ball close to a guideCorner
+	nextPos := u.PoiType{Point: u.PointType{X: 540, Y: 200}, Category: u.Ball}
+	u.CurrentPos.Set(u.PointType{X: 200, Y: 600})
+	frame.RateBall(&nextPos.Point)
+
+	moves := frame.CreateMoves(nextPos)
+	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
+
+	t.Log("m:", moves)
+	fmt.Println(moves)
+
+	if print {
+		frame.createTestImg(moves, t.Name())
+	}
+}
+
+func TestFrameMiddleXBallRemoveWaypoint(t *testing.T) {
+	frame := setupFrame()
+
+	//Place ball close to a guideCorner
+	nextPos := u.PoiType{Point: u.PointType{X: 300, Y: 320}, Category: u.Ball}
+	u.CurrentPos.Set(u.PointType{X: 700, Y: 600})
+	frame.RateBall(&nextPos.Point)
+
+	moves := frame.CreateMoves(nextPos)
+	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
+
+	fmt.Println(moves)
+	t.Log("m:", moves)
+
+	if print {
+		frame.createTestImg(moves, t.Name())
+	}
+	if fmt.Sprint(moves) != "[{{300 320 0} ball} {{491 564 1} waypoint} {{700 600 0} start}]" {
+		t.FailNow()
+	}
+
+}
+
 func TestAngledMiddleXDoubleIntersection(t *testing.T) {
 	frame := setupAngeledFrame()
 

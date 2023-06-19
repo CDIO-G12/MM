@@ -12,6 +12,7 @@ const DistanceFromBallMiddleX = 365
 
 const TimeBetweenMovesMS = 300
 const SecondsBeforeForgetBall = 2
+const WaypointIgnoreDistance = 100
 
 const VisualPort = 8888
 const GuideCornerOffset = 250 //in mm

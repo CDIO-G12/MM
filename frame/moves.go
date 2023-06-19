@@ -322,6 +322,12 @@ func (f *FrameType) calcWaypointsNew(current, next u.PointType) (export []u.PoiT
 		if current.X <= 0 || current.Y <= 0 {
 			break
 		}
+
+		// Check if the point is within 100 pixel distance from the next point
+		if current.Dist(next) < u.WaypointIgnoreDistance {
+			break
+		}
+
 		waypoints = append(waypoints, u.PoiType{Point: current, Category: u.WayPoint})
 	}
 
