@@ -109,7 +109,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					continue
 				}
 				//if there is not much time left, we go to dump
-				if Timer.Left().Seconds() < 30 && u.DumpAtThirty {
+				if Timer.Left().Seconds() < 50 && u.DumpAtThirty {
 					safeChannelSend(commandChan, "goal")
 					continue
 				}
@@ -387,6 +387,9 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 }
 
 func safeChannelSend[t any](ch chan<- t, command t) {
+	if fmt.Sprint(command) == "no\n" {
+		log.Infoln("!!JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaa")
+	}
 	select {
 	case ch <- command:
 	default:

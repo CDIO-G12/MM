@@ -58,6 +58,10 @@ func (f *FrameType) CreateMoves(currentPos u.PointType, nextPos u.PoiType) (dire
 			lastAppended = u.PoiType{Point: waypoint.Point.CalcNextPos(int(u.GetPixelDist() * u.DistanceFromBallMiddleX * 1.2)), Category: u.WayPoint}
 			directions = append(directions, lastAppended)
 
+			if nextPos.Point.Angle >= u.RatingMiddleXPickup {
+				nextPos.Point.Angle = u.RatingHard
+			}
+
 			//If the ball is in the corner
 		} else if nextPos.Point.Angle >= u.RatingCorner {
 			corner := nextPos.Point.Angle - u.RatingCorner
@@ -203,7 +207,7 @@ const borderDist = 25
 const cornerDist = 25
 const middleXDist = 100
 const middleXAngleDist = 150
-const middleXEasyDist = 50
+const middleXEasyDist = 75
 
 func (f *FrameType) RateBall(ball *u.PointType) {
 	pd := u.GetPixelDist()

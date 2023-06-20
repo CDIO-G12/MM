@@ -191,7 +191,7 @@ func TestFrameMiddleXBall(t *testing.T) {
 	if print {
 		frame.createTestImg(moves, t.Name())
 	}
-	if fmt.Sprint(moves) != "[{{510 390 40} ball} {{767 647 225} precise waypoint} {{819 699 225} waypoint} {{700 600 0} start}]" {
+	if fmt.Sprint(moves) != "[{{510 390 40} ball} {{590 470 225} precise waypoint} {{607 487 225} waypoint} {{700 600 0} start}]" {
 		t.FailNow()
 	}
 
@@ -270,27 +270,27 @@ var tests = []testType{
 	{name: "TMiddleX1",
 		currentPos: u.PointType{X: 700, Y: 600},
 		next:       u.PoiType{Point: u.PointType{X: 510, Y: 390}, Category: u.Ball},
-		expected:   "[{{510 390 40} ball} {{767 647 225} precise waypoint} {{819 699 225} waypoint} {{700 600 0} start}]",
+		expected:   "[{{510 390 40} ball} {{590 470 225} precise waypoint} {{607 487 225} waypoint} {{700 600 0} start}]",
 	}, {name: "TMiddleX2",
 		currentPos: u.PointType{X: 700, Y: 600},
 		next:       u.PoiType{Point: u.PointType{X: 470, Y: 340}, Category: u.Ball},
-		expected:   "[{{470 340 40} ball} {{212 82 45} precise waypoint} {{160 30 45} waypoint} {{285 360 2} waypoint} {{491 564 1} waypoint} {{700 600 0} start}]",
+		expected:   "[{{470 340 40} ball} {{389 259 45} precise waypoint} {{372 242 45} waypoint} {{285 360 2} waypoint} {{491 564 1} waypoint} {{700 600 0} start}]",
 	}, {name: "TMiddleX3",
 		currentPos: u.PointType{X: 100, Y: 600},
 		next:       u.PoiType{Point: u.PointType{X: 470, Y: 340}, Category: u.Ball},
-		expected:   "[{{470 340 40} ball} {{212 82 45} precise waypoint} {{160 30 45} waypoint} {{100 600 0} start}]",
+		expected:   "[{{470 340 40} ball} {{389 259 45} precise waypoint} {{372 242 45} waypoint} {{100 600 0} start}]",
 	}, {name: "TBorder",
 		currentPos: u.PointType{X: 600, Y: 600},
 		next:       u.PoiType{Point: u.PointType{X: 200, Y: 10}, Category: u.Ball},
-		expected:   "[{{200 10 20} ball} {{200 167 20} precise waypoint} {{285 360 2} waypoint} {{491 564 1} waypoint} {{600 600 0} start}]",
+		expected:   "[{{200 10 20} ball} {{200 165 20} precise waypoint} {{285 360 2} waypoint} {{491 564 1} waypoint} {{600 600 0} start}]",
 	}, {name: "TCorner",
 		currentPos: u.PointType{X: 600, Y: 600},
 		next:       u.PoiType{Point: u.PointType{X: 5, Y: 5}, Category: u.Ball},
-		expected:   "[{{5 5 30} ball} {{132 132 30} precise waypoint} {{152 152 30} precise waypoint} {{172 172 30} waypoint} {{285 360 2} waypoint} {{491 564 1} waypoint} {{600 600 0} start}]",
+		expected:   "[{{5 5 30} ball} {{128 128 30} precise waypoint} {{148 148 30} precise waypoint} {{168 168 30} waypoint} {{285 360 2} waypoint} {{491 564 1} waypoint} {{600 600 0} start}]",
 	}, {name: "TMiddleXDump",
 		currentPos: u.PointType{X: 100, Y: 600},
 		next:       u.PoiType{Point: u.PointType{X: 5, Y: 360}, Category: u.Goal},
-		expected:   "[{{5 360 21} goal} {{60 360 0} waypoint} {{115 360 0} waypoint} {{100 600 0} start}]",
+		expected:   "[{{5 360 21} goal} {{57 360 0} waypoint} {{110 360 0} waypoint} {{100 600 0} start}]",
 	},
 }
 var currentTest testType

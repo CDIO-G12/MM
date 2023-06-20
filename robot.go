@@ -61,6 +61,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 		ballCounter := 0
 		moving := false
 		newBallWaiting := false
+		lastPickedBall := u.PointType{}
 
 		//This helps for ending routines
 		ctx, cancel := context.WithCancel(context.Background())
@@ -89,13 +90,14 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						setState(stateCalibrate)
 
 					case u.Ball, u.Goal: //goal or ball
+						if nextPos == poi {
+							setState(stateNextMove)
+							continue
+						}
+
 						nextPos = poi
 						log.Infoln("Got next pos: ", poi)
-						if !moving {
-							setState(stateNextPosQueue)
-						} else {
-							newBallWaiting = true
-						}
+						setState(stateNextPosQueue)
 
 					case u.NewBall:
 						newBallWaiting = true
@@ -104,7 +106,11 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						setState(statePickup)
 
 					case u.NotFound:
-						commandChan <- "next"
+						if !moving {
+							commandChan <- "next"
+						} else {
+							newBallWaiting = true
+						}
 
 					default:
 						log.Infoln("Recieved weird POI? - ", poi)
@@ -238,6 +244,11 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					setState(stateNextPos)
 					continue
 				}
+				if lastPickedBall == nextGoto.Point {
+					commandChan <- "next"
+					continue
+				}
+
 				// check if new ball have appeared on the way to goal
 				if nextPos.Category == u.Goal && ballCounter < u.BallCounterMax && Timer.Left().Seconds() > 30 {
 					commandChan <- "nextIf"
@@ -250,9 +261,6 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					continue
 				}
 
-				// check if the move still makes sense
-				commandChan <- "check"
-
 				currentPos := u.CurrentPos.Get()
 				angle, dist := currentPos.AngleAndDist(nextGoto.Point)
 				dist = int(float64(dist) / u.GetPixelDist()) //convert from pixel to mm
@@ -264,6 +272,11 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					} else {
 						dist -= u.DistanceFromBall
 					}
+				}
+
+				// check if the move still makes sense
+				if dist < 30 {
+					commandChan <- "check"
 				}
 
 				log.Infof("Dist: %d, angle: %d, send angle: %d, next: %+v, current: %+v", dist, angle, angle-currentPos.Angle, nextGoto, currentPos)
@@ -307,7 +320,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					if dist > 255 {
 						dist = 255
 					}
-					success := sendToBot(conn, []byte{[]byte("F")[0], byte(int(dist / 2))})
+					success := sendToBot(conn, []byte{[]byte("F")[0], byte(int(dist - 2))})
 					if !success {
 						break loop
 					}
@@ -348,6 +361,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 
 			case statePickup:
 				commandChan <- "pause"
+				lastPickedBall = nextGoto.Point
 				success := sendToBot(conn, []byte{[]byte("T")[0], byte(nextGoto.Point.Angle / 10)})
 				if !success {
 					break loop
