@@ -21,6 +21,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 	sortedBalls := []u.PointType{}
 	orangeBall := u.PointType{X: 0, Y: 0}
 	goalPos := u.PointType{X: 48, Y: 355}
+	lastBallRecieveTime := time.Now()
 	currentBallLastSeen := time.Now()
 	currentBall := u.PointType{Angle: -1}
 	robotActive := false
@@ -62,12 +63,6 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					Timer.Start()
 				}
 				robotActive = true
-				if orangeBall.IsClose(currentBall, 5) {
-					orangeBall.X = 0
-					sendOrange = true
-				} else {
-					sendOrange = false
-				}
 
 				if orangeBall.X != 0 {
 					currentBall = orangeBall
@@ -75,20 +70,32 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					continue
 				}
 
+				if len(sortedBalls) == 0 {
+					currentBall.X = 0
+					poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
+					continue
+				}
+
 				ballBuffer := make([]u.PointType, len(sortedBalls))
 				copy(ballBuffer, sortedBalls)
-				sortedBalls, _ = frame.SortBalls(ballBuffer)
+				sortedBalls = frame.SortBalls(ballBuffer)
 
 				if len(sortedBalls) == 0 {
 					currentBall.X = 0
 					poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
 				} else {
 					// Dont send the same ball twice
-					if currentBall.IsClose(sortedBalls[0], 5) && len(sortedBalls) > 1 {
-						currentBall = sortedBalls[1]
-					} else {
-						currentBall = sortedBalls[0]
-					}
+					/*if currentBall.IsClose(sortedBalls[0], 20) {
+						if len(sortedBalls) > 1 {
+							currentBall = sortedBalls[1]
+						} else {
+							currentBall.X = 0
+							poiChan <- u.PoiType{Point: goalPos, Category: u.Goal}
+							continue
+						}
+					} else {*/
+					currentBall = sortedBalls[0]
+					//}
 					poiChan <- u.PoiType{Point: currentBall, Category: u.Ball}
 				}
 
@@ -108,7 +115,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				}
 
 				// if we have not seen the current ball in a long time
-				if time.Since(currentBallLastSeen).Seconds() > u.SecondsBeforeForgetBall {
+				if time.Since(currentBallLastSeen).Seconds() > u.SecondsBeforeForgetBall && time.Since(lastBallRecieveTime).Seconds() < u.SecondsBeforeForgetBall {
 					poiChan <- u.PoiType{Category: u.NewBall}
 				}
 
@@ -118,19 +125,21 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					point := u.PointType{}
 					point.X, _ = strconv.Atoi(spl[1])
 					point.Y, _ = strconv.Atoi(spl[2])
-					visLog.Info(spl)
+					visLog.Info("Check: ", spl)
 
-					if time.Since(currentBallLastSeen).Seconds() < u.SecondsBeforeForgetBall {
+					/*
+						if time.Since(currentBallLastSeen).Seconds() > u.SecondsBeforeForgetBall && time.Since(lastBallRecieveTime).Seconds() < u.SecondsBeforeForgetBall {
+							poiChan <- u.PoiType{Category: u.NotFound}
+						} else {
+							poiChan <- u.PoiType{Category: u.Found}
+						}
+					*/
+
+					if u.InArrayClose(point, sortedBalls) || point.IsClose(orangeBall, 15) {
 						poiChan <- u.PoiType{Category: u.Found}
 					} else {
 						poiChan <- u.PoiType{Category: u.NotFound}
 					}
-					/*
-						if u.InArrayClose(point, sortedBalls) || point.IsClose(orangeBall, 3) {
-							poiChan <- u.PoiType{Category: u.Found}
-						} else {
-							poiChan <- u.PoiType{Category: u.NotFound}
-						}*/
 					continue
 				}
 
@@ -220,7 +229,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						if tempY, err := strconv.Atoi(split[2]); err == nil {
 							orangeBall.X = tempX
 							orangeBall.Y = tempY
-							if currentBall.IsClose(orangeBall, 5) {
+							if currentBall.IsClose(orangeBall, 25) {
 								currentBallLastSeen = time.Now()
 							}
 						}
@@ -255,18 +264,18 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 						continue
 					}
 					if split[1] == "d" { // list done
+						if len(ballBuffer) <= 0 {
+							sortedBalls = ballBuffer
+							continue
+						}
+						lastBallRecieveTime = time.Now()
 						if !checkForNewBalls(balls, ballBuffer) {
 							continue
 						}
 						balls = make([]u.PointType, len(ballBuffer))
 						copy(balls, ballBuffer)
 
-						var err error
-						sortedBalls, err = frame.SortBalls(ballBuffer)
-						if log.Should(err) {
-							continue
-						}
-
+						sortedBalls = frame.SortBalls(ballBuffer)
 						if len(sortedBalls) < 1 {
 							continue
 						}
@@ -324,7 +333,7 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 									lastCorners[tempI] = corner
 									framePoiChan <- u.PoiType{Category: u.Corner, Point: corner}
 
-									if tempI == 3 && false {
+									if tempI == 3 {
 										guide := frame.GetGuideFrame()
 										send := ""
 										for i, v := range guide {
@@ -353,11 +362,11 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 					}
 
 				case "f": // found - not used at the moment
-					if split[1] == "t" {
+					/*if split[1] == "t" {
 						poiChan <- u.PoiType{Category: u.Found}
 					} else {
 						poiChan <- u.PoiType{Category: u.NotFound}
-					}
+					}*/
 
 				case "g": // goal
 					//continue

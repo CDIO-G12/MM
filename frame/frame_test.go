@@ -79,7 +79,7 @@ func TestFrameIntersect(t *testing.T) {
 	u.CurrentPos.Set(u.PointType{X: 450, Y: 700})
 	frame.RateBall(&nextPos.Point)
 
-	moves := frame.CreateMoves(nextPos)
+	moves := frame.CreateMoves(u.CurrentPos.Get(), nextPos)
 	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
 	t.Log("m:", moves)
@@ -100,7 +100,7 @@ func TestFrameDoubleIntersect(t *testing.T) {
 	u.CurrentPos.Set(u.PointType{X: 600, Y: 550})
 	frame.RateBall(&nextPos.Point)
 
-	moves := frame.CreateMoves(nextPos)
+	moves := frame.CreateMoves(u.CurrentPos.Get(), nextPos)
 	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
 	t.Log("m:", moves)
@@ -121,7 +121,7 @@ func TestFrameNoIntersect(t *testing.T) {
 	u.CurrentPos.Set(u.PointType{X: 520, Y: 700})
 	frame.RateBall(&nextPos.Point)
 
-	moves := frame.CreateMoves(nextPos)
+	moves := frame.CreateMoves(u.CurrentPos.Get(), nextPos)
 	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
 	t.Log("m:", moves)
@@ -142,7 +142,7 @@ func TestFrameSpecialCase(t *testing.T) {
 	u.CurrentPos.Set(u.PointType{X: 760, Y: 242})
 	frame.RateBall(&nextPos.Point)
 
-	moves := frame.CreateMoves(nextPos)
+	moves := frame.CreateMoves(u.CurrentPos.Get(), nextPos)
 	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
 	t.Log("m:", moves)
@@ -163,7 +163,7 @@ func TestFrameSpecialCase2(t *testing.T) {
 	u.CurrentPos.Set(u.PointType{X: 700, Y: 600})
 	frame.RateBall(&nextPos.Point)
 
-	moves := frame.CreateMoves(nextPos)
+	moves := frame.CreateMoves(u.CurrentPos.Get(), nextPos)
 	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
 	t.Log("m:", moves)
@@ -183,7 +183,7 @@ func TestFrameMiddleXBall(t *testing.T) {
 	u.CurrentPos.Set(u.PointType{X: 700, Y: 600})
 	frame.RateBall(&nextPos.Point)
 
-	moves := frame.CreateMoves(nextPos)
+	moves := frame.CreateMoves(u.CurrentPos.Get(), nextPos)
 	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
 	t.Log("m:", moves)
@@ -205,7 +205,7 @@ func TestFrameMiddleXBall2(t *testing.T) {
 	u.CurrentPos.Set(u.PointType{X: 200, Y: 600})
 	frame.RateBall(&nextPos.Point)
 
-	moves := frame.CreateMoves(nextPos)
+	moves := frame.CreateMoves(u.CurrentPos.Get(), nextPos)
 	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
 	t.Log("m:", moves)
@@ -224,7 +224,7 @@ func TestFrameMiddleXBallRemoveWaypoint(t *testing.T) {
 	u.CurrentPos.Set(u.PointType{X: 700, Y: 600})
 	frame.RateBall(&nextPos.Point)
 
-	moves := frame.CreateMoves(nextPos)
+	moves := frame.CreateMoves(u.CurrentPos.Get(), nextPos)
 	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
 	fmt.Println(moves)
@@ -246,7 +246,7 @@ func TestAngledMiddleXDoubleIntersection(t *testing.T) {
 	u.CurrentPos.Set(u.PointType{X: 600, Y: 550})
 	frame.RateBall(&nextPos.Point)
 
-	moves := frame.CreateMoves(nextPos)
+	moves := frame.CreateMoves(u.CurrentPos.Get(), nextPos)
 	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
 	t.Log("m:", moves)
@@ -310,7 +310,7 @@ func testSpecific(t *testing.T) {
 	u.CurrentPos.Set(test.currentPos)
 	frame.RateBall(&nextPos.Point)
 
-	moves := frame.CreateMoves(nextPos)
+	moves := frame.CreateMoves(u.CurrentPos.Get(), nextPos)
 	moves = append(moves, u.PoiType{Point: u.CurrentPos.Get(), Category: u.Start})
 
 	t.Log("m:", moves)

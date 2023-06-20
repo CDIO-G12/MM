@@ -2,13 +2,11 @@ package frame
 
 import (
 	u "MM/utils"
-	"fmt"
-	"log"
-	"math"
+
+	log "github.com/s00500/env_logger"
 )
 
-func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
-	currentPos := u.CurrentPos.Get()
+func (f *FrameType) CreateMoves(currentPos u.PointType, nextPos u.PoiType) (directions []u.PoiType) {
 
 	if nextPos.Category == u.Goal {
 		if currentPos.IsClose(nextPos.Point, 5) {
@@ -38,6 +36,7 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 			//find what side of the middlex the ball is on
 			ang, _ := f.MiddleXPoint().AngleAndDist(nextPos.Point)
 			ang -= middleXAngle
+			ang = u.CircularChecker(ang)
 
 			switch {
 			case ang >= 0 && ang < 90:
@@ -46,12 +45,14 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 				ang = 135
 			case ang >= 180 && ang < 270:
 				ang = 225
-			default:
+			case ang >= 270 && ang < 360:
 				ang = 315
+			default:
+				log.Infoln(ang, "OH NOOOOOOOOOOO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 			}
 
 			waypoint := nextPos
-			waypoint.Point.Angle = middleXAngle + ang
+			waypoint.Point.Angle = u.DegreeAdd(middleXAngle, ang)
 			lastAppended = u.PoiType{Point: waypoint.Point.CalcNextPos(int(u.GetPixelDist() * u.DistanceFromBallMiddleX)), Category: u.PreciseWayPoint}
 			directions = append(directions, lastAppended)
 			lastAppended = u.PoiType{Point: waypoint.Point.CalcNextPos(int(u.GetPixelDist() * u.DistanceFromBallMiddleX * 1.2)), Category: u.WayPoint}
@@ -119,7 +120,6 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 	}
 
 	if closeToPoint >= 0 {
-		log.Println("close to point ", closeToPoint)
 		if len(directions) > closeToPoint {
 			if len(directions) > 0 {
 				directions = directions[:closeToPoint]
@@ -132,6 +132,7 @@ func (f *FrameType) CreateMoves(nextPos u.PoiType) (directions []u.PoiType) {
 	return
 }
 
+/*
 func (f *FrameType) CalculateWaypoint(nextPos u.PoiType) (WayPoints []u.PoiType) {
 
 	currentPos := u.CurrentPos.Get()
@@ -195,6 +196,7 @@ func (f *FrameType) FindThreeClosestXPoints() (points []u.PointType) {
 	return points
 
 }
+*/
 
 const hardDist = 75
 const borderDist = 25
@@ -206,9 +208,9 @@ const middleXEasyDist = 50
 func (f *FrameType) RateBall(ball *u.PointType) {
 	pd := u.GetPixelDist()
 
-	dist := f.MiddleXPoint().Dist(*ball)
-	fmt.Println(f.MiddleXPoint(), dist)
-	if dist < int(middleXDist*pd) {
+	middleX := f.MiddleXPoint()
+	dist := middleX.Dist(*ball)
+	if dist < int(middleXDist*pd) && middleX.X != 0 {
 		ball.Angle = u.RatingMiddleX
 		return
 	}

@@ -1,5 +1,6 @@
 package main
 
+/*
 import (
 	ct "MM/conn_testers"
 	f "MM/frame"
@@ -22,9 +23,7 @@ func Test_main(t *testing.T) {
 	u.GetIp()
 	log.Info("Got IP: ", u.IP)
 
-	/*f.ManualTest()
-	return
-	*/
+
 
 	// this creates a channel and a routine for the key getter. Not used at the moment
 	keyChan := make(chan string, 5)
@@ -119,3 +118,4 @@ func initializeVisuals(visChan chan<- string, currentPos u.PointType) {
 func currentPosToString(currentPos u.PointType) string {
 	return fmt.Sprintf("r/%d/%d/%d", currentPos.X, currentPos.Y, u.DegreeAdd(currentPos.Angle, 90))
 }
+*/

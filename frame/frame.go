@@ -39,7 +39,9 @@ func NewFrame(poiChan <-chan u.PoiType) *FrameType {
 					continue
 				}
 				frame.mu.Lock()
-				frame.MiddleX[poi.Point.Angle] = poi.Point
+				if frame.MiddleX[poi.Point.Angle].X == 0 || frame.MiddleX[poi.Point.Angle].IsClose(poi.Point, 50) {
+					frame.MiddleX[poi.Point.Angle] = poi.Point
+				}
 				frame.mu.Unlock()
 				frame.updateGuideCorners(poi.Point.Angle)
 
@@ -117,6 +119,7 @@ func (f *FrameType) MiddleXPoint() u.PointType {
 	return u.PointType{X: middleX, Y: middleY}
 }
 
+/*
 func (f *FrameType) findClosestGuidePosition(position u.PointType) u.PointType {
 	f.mu.Lock()
 	up := u.Avg(f.guideCorners[0].Y, f.guideCorners[1].Y)
@@ -163,6 +166,7 @@ func (f *FrameType) findClosestGuidePosition(position u.PointType) u.PointType {
 
 	return pos
 }
+*/
 
 func (f *FrameType) createTestImg(points []u.PoiType, name string) {
 	currentPos := u.CurrentPos.Get()
@@ -227,7 +231,7 @@ func (f *FrameType) GetGuideFrame() [4]u.PointType {
 }
 
 // sort balls purely based on length to closest
-func (f *FrameType) SortBallsOld(balls []u.PointType) (sortedBalls []u.PointType, err error) {
+func (f *FrameType) SortBallsOld(balls []u.PointType) (sortedBalls []u.PointType) {
 	currentPos := u.CurrentPos.Get()
 	//Start from the position of the grapper, not the position of the tracking points
 	currentPos = currentPos.CalcNextPos(int(u.DistanceFromBall * u.GetPixelDist()))
@@ -256,12 +260,13 @@ func (f *FrameType) SortBallsOld(balls []u.PointType) (sortedBalls []u.PointType
 }
 
 // sort balls purely based on length to closest
-func (f *FrameType) SortBalls(balls []u.PointType) (sortedBalls []u.PointType, err error) {
+func (f *FrameType) SortBalls(balls []u.PointType) (sortedBalls []u.PointType) {
 	currentPos := u.CurrentPos.Get()
 	//Start from the position of the grapper, not the position of the tracking points
 	//currentPos = currentPos.CalcNextPos(int(u.DistanceFromBall * u.GetPixelDist()))
 
 	origLength := len(balls)
+	// if there is only one ball, return that ball
 	if origLength < 2 {
 		sortedBalls = balls
 		return
@@ -279,7 +284,7 @@ func (f *FrameType) SortBalls(balls []u.PointType) (sortedBalls []u.PointType, e
 		minI := 0
 		for j, v := range balls {
 			f.RateBall(&v)
-			moves := f.CreateMoves(u.PoiType{Point: v, Category: u.Ball})
+			moves := f.CreateMoves(currentPos, u.PoiType{Point: v, Category: u.Ball})
 			dist := 0
 			pos := currentPos
 			for len(moves) > 0 {
@@ -287,9 +292,11 @@ func (f *FrameType) SortBalls(balls []u.PointType) (sortedBalls []u.PointType, e
 				dist += pos.Dist(move.Point)
 				pos = move.Point
 			}
-			// if it is not an easy ball, we add a factor
-			if v.Angle >= u.RatingCorner {
-				dist += v.Angle * 1000
+			// cornerballs should be the last balls
+			if v.Angle >= u.RatingMiddleX {
+				dist -= 100
+			} else if v.Angle >= u.RatingCorner {
+				dist += 7000
 			}
 			if dist < minDist {
 				minDist = dist
