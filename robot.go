@@ -90,8 +90,8 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 						setState(stateCalibrate)
 
 					case u.Ball, u.Goal: //goal or ball
-						if nextPos == poi {
-							setState(stateNextMove)
+						if nextPos == poi && poi.Category != u.Goal {
+							//setState(stateNextMove)
 							continue
 						}
 
@@ -275,7 +275,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				}
 
 				// check if the move still makes sense
-				if dist < 30 {
+				if dist < 30 && nextPos.Category == u.Goal {
 					commandChan <- "check"
 				}
 

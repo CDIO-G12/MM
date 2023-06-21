@@ -17,7 +17,7 @@ const WaypointIgnoreDistance = 75
 const VisualPort = 8888
 const GuideCornerOffset = 250 //in mm
 const VisualDebugLog = false
-const MmToGoal = 210
+const MmToGoal = 205
 
 const DumpAtThirty = true
 const AutoGo = false
