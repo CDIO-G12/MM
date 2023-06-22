@@ -79,7 +79,6 @@ func initVisualServer(frame *f.FrameType, poiChan chan<- u.PoiType, framePoiChan
 				ballBuffer := make([]u.PointType, len(sortedBalls))
 				copy(ballBuffer, sortedBalls)
 				sortedBalls = frame.SortBalls(ballBuffer)
-				fmt.Println(sortedBalls)
 
 				if len(sortedBalls) == 0 {
 					currentBall.X = 0

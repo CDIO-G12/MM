@@ -4,7 +4,7 @@ const localhost = false
 const wifi = false
 
 const RobotPort = 9999
-const BallCounterMax = 6
+const BallCounterMax = 4
 const TrackingDistance = 205        // in mm
 const DistanceFromBall = 290        // in mm
 const DistanceFromBallCorner = 350  // in mm
@@ -15,7 +15,7 @@ const SecondsBeforeForgetBall = 2
 const WaypointIgnoreDistance = 75
 
 const VisualPort = 8888
-const GuideCornerOffset = 250 //in mm
+const GuideCornerOffset = 275 //in mm
 const VisualDebugLog = false
 const MmToGoal = 205
 

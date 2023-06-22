@@ -293,11 +293,8 @@ func (f *FrameType) SortBalls(balls []u.PointType) (sortedBalls []u.PointType) {
 				pos = move.Point
 			}
 			// cornerballs should be the last balls
-			if v.Angle >= u.RatingMiddleX {
-				dist -= 100
-			} else if v.Angle >= u.RatingCorner {
-				dist += 7000
-			}
+			dist += 500 * v.Angle
+
 			if dist < minDist {
 				minDist = dist
 				minI = j

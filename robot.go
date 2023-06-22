@@ -275,7 +275,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 				}
 
 				// check if the move still makes sense
-				if dist < 30 && nextPos.Category == u.Goal {
+				if dist < 80 && nextPos.Category == u.Goal {
 					commandChan <- "check"
 				}
 
@@ -375,7 +375,7 @@ func initRobotServer(frame *f.FrameType, keyChan <-chan string, poiChan <-chan u
 					break loop
 				}
 				time.Sleep(2 * time.Second)
-				success = sendToBot(conn, []byte{[]byte("D")[0], byte(2)})
+				success = sendToBot(conn, []byte{[]byte("D")[0], byte(1)})
 				if !success {
 					break loop
 				}

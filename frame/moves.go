@@ -203,8 +203,8 @@ func (f *FrameType) FindThreeClosestXPoints() (points []u.PointType) {
 */
 
 const hardDist = 75
-const borderDist = 25
-const cornerDist = 25
+const borderDist = 40
+const cornerDist = 35
 const middleXDist = 100
 const middleXAngleDist = 150
 const middleXEasyDist = 75
